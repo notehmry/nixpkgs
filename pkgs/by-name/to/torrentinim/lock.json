@@ -1,0 +1,160 @@
+{
+  "depends": [
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/mys0888vyyd12h0qhzg709jk9jb6rmxa-source",
+      "rev": "83e2866422788a1db1906734de056b410a49d047",
+      "sha256": "0g1mcpfx42wnv2sg551gbgfralp7bf9fv83l2inbv2bhb063fx0z",
+      "url": "https://github.com/GULPF/nimquery/archive/83e2866422788a1db1906734de056b410a49d047.tar.gz",
+      "ref": "v2.0.1",
+      "packages": [
+        "nimquery"
+      ],
+      "srcDir": ""
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/l0yqw6fqpmgyc508mq64l55qgaz7zzng-source",
+      "rev": "f3ea51bde207462e37e4fc9a9e10326658c70e73",
+      "sha256": "18i4k4k26jcv21k8gcxncvghdm030p3qqb1cp694nl7f7qbv7arr",
+      "url": "https://github.com/sergiotapia/filesize/archive/f3ea51bde207462e37e4fc9a9e10326658c70e73.tar.gz",
+      "ref": "master",
+      "packages": [
+        "filesize"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/bncv5qs8c3z9w2jcmkv1lkw7y2zyrs74-source",
+      "rev": "81c8c1d7c7f4947c28eeeac55648f6edd1be37f1",
+      "sha256": "1fzqg85f7w0rj1klaqdmk6fdxrz16wphcymi1gvxhpv6b00b60f1",
+      "url": "https://github.com/planety/Prologue/archive/81c8c1d7c7f4947c28eeeac55648f6edd1be37f1.tar.gz",
+      "ref": "v0.6.6",
+      "packages": [
+        "prologue"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/1y5divckxhpdlhjf25jakr3fnlbqqv0k-source",
+      "rev": "dc07e3058c6904eef965394493b6ea99aa2adefc",
+      "sha256": "1nj45bn99lyylzd3add01irxn2irhpj2ll9sphjf1zlczmga7d49",
+      "url": "https://github.com/cheatfate/nimcrypto/archive/dc07e3058c6904eef965394493b6ea99aa2adefc.tar.gz",
+      "ref": "v0.6.2^{}",
+      "packages": [
+        "nimcrypto"
+      ],
+      "srcDir": ""
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/pk3h4sirdxp0bp74rmhdbfq210z8hgqv-source",
+      "rev": "372b0ab1a6036a9f48f7540e7f3090e61796d947",
+      "sha256": "1xkyk8sqfhgmg5yaqpl10qva1zdfdjx0cw68fl6agskaad4af7i0",
+      "url": "https://github.com/planety/cookiejar/archive/372b0ab1a6036a9f48f7540e7f3090e61796d947.tar.gz",
+      "ref": "v0.3.1",
+      "packages": [
+        "cookiejar"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/mwwlm0fc2i79rynvhiyc35wwb5p9ydy6-source",
+      "rev": "47cb5e79c6070153240f7395134885a114b0f039",
+      "sha256": "1vyw5s60ylv4l8rkfbq9jzzq2qra2spbpv135nyjmbdij0f5p9bh",
+      "url": "https://github.com/ringabout/httpx/archive/47cb5e79c6070153240f7395134885a114b0f039.tar.gz",
+      "ref": "v0.3.8",
+      "packages": [
+        "httpx"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/lsbcz1zjswczah55qixrr20ch9zyb202-source",
+      "rev": "fdad43b69bc4517a3595d1a28e86161e8cfca614",
+      "sha256": "1b0zks0qvfwi7x1vxxa0g3ipjky81lh5nqgiqnl1xn7i57ngxk3x",
+      "url": "https://github.com/planety/logue/archive/fdad43b69bc4517a3595d1a28e86161e8cfca614.tar.gz",
+      "ref": "v0.2.4",
+      "packages": [
+        "logue"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/1mcck56sr1h1sf8gv87m761x6f3d1k0l-source",
+      "rev": "7c6ee4bfc184d7121896a098d68b639a96df7af1",
+      "sha256": "06j8d0bjbpv1iibqlmrac4qb61ggv17hvh6nv4pbccqk1rlpxhsq",
+      "url": "https://github.com/nitely/nim-unicodedb/archive/7c6ee4bfc184d7121896a098d68b639a96df7af1.tar.gz",
+      "ref": "v0.9.0",
+      "packages": [
+        "unicodedb"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/16fm03dql3pplz3ip40k0nbxw1gc0880-source",
+      "rev": "f5d50197b266173dd4ca4c6fdd30361398433bb4",
+      "sha256": "1cd3n9l45z60gpv0rc84v1ngkjxn0i45vz0lzy63052m7m0j2rks",
+      "url": "https://github.com/nitely/nim-unicodeplus/archive/f5d50197b266173dd4ca4c6fdd30361398433bb4.tar.gz",
+      "ref": "v0.9.1",
+      "packages": [
+        "unicodeplus"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/jyd3r1x8dg4qjb236l51q7qckw3z2crg-source",
+      "rev": "c9344036936a49db3ff1bce97e0896d6aabcf22d",
+      "sha256": "0c0k6s45pgga02wx7j9agf1f5lwwfxvxj94qy1m32cy8sx2chjgp",
+      "url": "https://github.com/ringabout/ioselectors/archive/c9344036936a49db3ff1bce97e0896d6aabcf22d.tar.gz",
+      "ref": "v0.2.0",
+      "packages": [
+        "ioselectors"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/pqvfvznqvkxlli2w5g1z01dcpmvfj1a7-source",
+      "rev": "703edd1f5f557f6c01681159b63eb46bacf6a609",
+      "sha256": "0cj0i9vqqz025ypb6zxh3fz0a7a1gmi252zqkyq84rzh3ixa6sym",
+      "url": "https://github.com/c-blake/cligen/archive/703edd1f5f557f6c01681159b63eb46bacf6a609.tar.gz",
+      "ref": "1.7.9",
+      "packages": [
+        "cligen"
+      ],
+      "srcDir": ""
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/c4c1bbxd29gmjj543wma2sbya5wvw5yg-source",
+      "rev": "6845c68cf00c1546f49d628ae11334acba966bfb",
+      "sha256": "007bkx8dwy8n340zbp6wyqfsq9bh6q5ykav1ywdlwykyp1n909bh",
+      "url": "https://github.com/nitely/nim-segmentation/archive/6845c68cf00c1546f49d628ae11334acba966bfb.tar.gz",
+      "ref": "v0.1.0",
+      "packages": [
+        "segmentation"
+      ],
+      "srcDir": "src"
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/9d2wzxvnk7m8s14f448wjd818p29k971-source",
+      "rev": "07fb549ecf656f9aab957b78fb0d1e2d2e47a76f",
+      "sha256": "0h1nda2qil418zpn457g6xj6vzf7ccs53hmhh7yngk1rz9f47flq",
+      "url": "https://github.com/ringabout/wepoll/archive/07fb549ecf656f9aab957b78fb0d1e2d2e47a76f.tar.gz",
+      "ref": "v0.1.2",
+      "packages": [
+        "wepoll"
+      ],
+      "srcDir": "src"
+    }
+  ]
+}
