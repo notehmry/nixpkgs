@@ -1778,6 +1778,8 @@
   ./system/boot/stage-1.nix
   ./system/boot/stage-2.nix
   ./system/boot/stratisroot.nix
+  ./system/boot/synit
+  ./system/boot/synit/stage-1.nix
   ./system/boot/systemd.nix
   ./system/boot/systemd/coredump.nix
   ./system/boot/systemd/dm-verity.nix
