@@ -82,9 +82,7 @@ in
 
   };
 
-  config = {
-
-    system.build.bootStage2 = bootStage2;
-
+  config.system.build = lib.mkIf config.systemd.enable {
+    inherit bootStage2;
   };
 }

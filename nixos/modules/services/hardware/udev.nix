@@ -222,7 +222,8 @@ in
 
     services.udev = {
       enable = lib.mkEnableOption "udev, a device manager for the Linux kernel" // {
-        default = true;
+        default = config.systemd.enable;
+        defaultText = lib.literalExpression "config.systemd.enable";
       };
 
       packages = lib.mkOption {

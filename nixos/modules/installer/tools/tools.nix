@@ -37,7 +37,8 @@ let
         ])
       }/bin/perl";
       hostPlatformSystem = pkgs.stdenv.hostPlatform.system;
-      detectvirt = "${config.systemd.package}/bin/systemd-detect-virt";
+      detectvirt = if config.systemd.enable then "${config.systemd.package}/bin/systemd-detect-virt"
+      else lib.getExe pkgs.virt-what;
       btrfs = "${pkgs.btrfs-progs}/bin/btrfs";
       inherit (config.system.nixos-generate-config) configuration desktopConfiguration flake;
       xserverEnabled = config.services.xserver.enable;

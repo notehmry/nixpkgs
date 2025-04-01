@@ -15,7 +15,7 @@ in
     };
   };
 
-  config = lib.mkIf cfg.fido2.enable {
+  config = lib.mkIf (cfg.fido2.enable && config.systemd.enable) {
     boot.initrd.services.udev.packages = [
       # TODO: Add a better way to include upstream rules files.
       (pkgs.runCommand "udev-fido2" { } ''

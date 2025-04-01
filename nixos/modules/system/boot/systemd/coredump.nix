@@ -15,7 +15,8 @@ in
 {
   options = {
     systemd.coredump.enable = mkOption {
-      default = true;
+      default = config.systemd.enable;
+      defaultText = lib.literalExpression "config.systemd.enable";
       type = types.bool;
       description = ''
         Whether core dumps should be processed by

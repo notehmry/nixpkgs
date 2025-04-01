@@ -36,9 +36,10 @@ let
     ''}
 
     ln -s ${config.system.path} $out/sw
-    ln -s "$systemd" $out/systemd
-
-    echo -n "systemd ${toString config.systemd.package.interfaceVersion}" > $out/init-interface-version
+    ${lib.optionalString config.systemd.enable ''
+      ln -s "$systemd" $out/systemd
+      echo -n "systemd ${toString config.systemd.package.interfaceVersion}" > $out/init-interface-version
+    ''}
     echo -n "$nixosLabel" > $out/nixos-version
     echo -n "${config.boot.kernelPackages.stdenv.hostPlatform.system}" > $out/system
 
@@ -67,12 +68,11 @@ let
       passAsFile = [ "extraDependencies" ];
       buildCommand = systemBuilder;
 
-      systemd = config.systemd.package;
-
       nixosLabel = config.system.nixos.label;
 
       inherit (config.system) extraDependencies;
     }
+    // (lib.optionalAttrs config.systemd.enable { systemd = config.systemd.package; })
     // config.system.systemBuilderArgs
   );
 

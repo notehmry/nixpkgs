@@ -223,7 +223,15 @@ in
 
   options.systemd = {
 
-    package = mkPackageOption pkgs "systemd" { };
+    enable = mkEnableOption "systemd system and service manager" // {
+      default = true;
+    };
+
+    package = mkOption {
+      description = "The systemd package to use.";
+      defaultText = lib.literalExpression "pkgs.systemd";
+      type = types.package;
+    };
 
     enableStrictShellChecks = mkEnableOption "" // {
       description = ''
@@ -515,7 +523,7 @@ in
 
   ###### implementation
 
-  config = {
+  config = mkIf cfg.enable {
 
     warnings =
       let
@@ -577,6 +585,8 @@ in
           ])
       ) cfg.services
     );
+
+    systemd.package = mkDefault pkgs.systemd;
 
     system.build.units = cfg.units;
 

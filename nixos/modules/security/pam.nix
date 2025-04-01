@@ -1395,7 +1395,7 @@ let
               }
               {
                 name = "systemd";
-                enable = cfg.startSession;
+                enable = config.systemd.enable && cfg.startSession;
                 control = "optional";
                 modulePath = "${config.systemd.package}/lib/security/pam_systemd.so";
               }
