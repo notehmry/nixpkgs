@@ -278,6 +278,141 @@ let
     )) [ "preMount" ];
   };
 
+  bootStage1 = pkgs.writeTextFile {
+    name = "stage-1-init.sh";
+    executable = true;
+    text = lib.concatStringsSep "\n" (
+      lib.flatten [
+        "#! ${extraUtils}/bin/ash}"
+        (lib.textClosureList initialScripts [
+          "defines"
+          "mount"
+        ])
+        "exec $stage2Init"
+      ]
+    );
+    checkPhase = ''
+      echo checking script syntax
+      ${pkgs.buildPackages.busybox}/bin/ash -n $target
+    '';
+  };
+
+  # The closure of the init script of boot stage 1 is what we put in
+  # the initial RAM disk.
+  initialRamdisk = pkgs.makeInitrd {
+    name = "initrd-${config.boot.kernelPackages.kernel.name or "kernel"}";
+    inherit (config.boot.initrd) compressor compressorArgs prepend;
+
+    contents =
+      [
+        {
+          object = bootStage1;
+          symlink = "/init";
+        }
+        {
+          object =
+            let
+              # Determine the set of modules that we need to mount the root FS.
+              modulesClosure = pkgs.makeModulesClosure {
+                rootModules = config.boot.initrd.availableKernelModules ++ config.boot.initrd.kernelModules;
+                kernel = config.system.modulesTree;
+                firmware = config.hardware.firmware;
+                allowMissing = false;
+                inherit (config.boot.initrd) extraFirmwarePaths;
+              };
+            in
+            "${modulesClosure}/lib";
+          symlink = "/lib";
+        }
+        {
+          object = "${pkgs.kmod-blacklist-ubuntu}/modprobe.conf";
+          symlink = "/etc/modprobe.d/ubuntu.conf";
+        }
+        {
+          object = config.environment.etc."modprobe.d/nixos.conf".source;
+          symlink = "/etc/modprobe.d/nixos.conf";
+        }
+        {
+          object = pkgs.kmod-debian-aliases;
+          symlink = "/etc/modprobe.d/debian.conf";
+        }
+      ]
+      ++ lib.optionals config.services.multipath.enable [
+        {
+          object =
+            pkgs.runCommand "multipath.conf"
+              {
+                src = config.environment.etc."multipath.conf".text;
+                preferLocalBuild = true;
+              }
+              ''
+                target=$out
+                printf "$src" > $out
+                substituteInPlace $out \
+                  --replace ${config.services.multipath.package}/lib ${extraUtils}/lib
+              '';
+          symlink = "/etc/multipath.conf";
+        }
+      ]
+      ++ (lib.mapAttrsToList (symlink: options: {
+        inherit symlink;
+        object = options.source;
+      }) config.boot.initrd.extraFiles);
+  };
+
+  # Script to add secret files to the initrd at bootloader update time
+  initialRamdiskSecretAppender =
+    let
+      compressorExe = initialRamdisk.compressorExecutableFunction pkgs;
+    in
+    pkgs.writeScriptBin "append-initrd-secrets" ''
+      #!${pkgs.bash}/bin/bash -e
+      function usage {
+        echo "USAGE: $0 INITRD_FILE" >&2
+        echo "Appends this configuration's secrets to INITRD_FILE" >&2
+      }
+
+      if [ $# -ne 1 ]; then
+        usage
+        exit 1
+      fi
+
+      if [ "$1"x = "--helpx" ]; then
+        usage
+        exit 0
+      fi
+
+      ${lib.optionalString (config.boot.initrd.secrets == { }) "exit 0"}
+
+      export PATH=${pkgs.coreutils}/bin:${pkgs.cpio}/bin:${pkgs.gzip}/bin:${pkgs.findutils}/bin
+
+      function cleanup {
+        if [ -n "$tmp" -a -d "$tmp" ]; then
+          rm -fR "$tmp"
+        fi
+      }
+      trap cleanup EXIT
+
+      tmp=$(mktemp -d ''${TMPDIR:-/tmp}/initrd-secrets.XXXXXXXXXX)
+
+      ${lib.concatStringsSep "\n" (
+        mapAttrsToList (
+          dest: source:
+          let
+            source' = if source == null then dest else toString source;
+          in
+          ''
+            mkdir -p $(dirname "$tmp/.initrd-secrets/${dest}")
+            cp -a ${source'} "$tmp/.initrd-secrets/${dest}"
+          ''
+        ) config.boot.initrd.secrets
+      )}
+
+      # mindepth 1 so that we don't change the mode of /
+      (cd "$tmp" && find . -mindepth 1 | xargs touch -amt 197001010000 && find . -mindepth 1 -print0 | sort -z | cpio --quiet -o -H newc -R +0:+0 --reproducible --null) | \
+        ${compressorExe} ${lib.escapeShellArgs initialRamdisk.compressorArgs} >> "$1"
+    '';
+
 in
 {
   options.synit.initrd = {
@@ -327,26 +462,7 @@ in
         '' [ "defines" ];
       });
 
-    system.build = {
-      bootStage1 = pkgs.writeTextFile {
-        name = "stage-1-init.sh";
-        executable = true;
-        text = lib.concatStringsSep "\n" (
-          lib.flatten [
-            "#! ${extraUtils}/bin/ash}"
-            (lib.textClosureList initialScripts [
-              "defines"
-              "mount"
-            ])
-            "exec $stage2Init"
-          ]
-        );
-        checkPhase = ''
-          echo checking script syntax
-          ${pkgs.buildPackages.busybox}/bin/ash -n $target
-        '';
-      };
-    };
+    system.build = { inherit bootStage1 initialRamdisk initialRamdiskSecretAppender; };
 
   };
 
