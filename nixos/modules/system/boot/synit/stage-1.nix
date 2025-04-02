@@ -119,6 +119,9 @@ let
           copy_bin_and_libs ${config.boot.zfs.package}/bin/mount.zfs
         ''}
 
+        # Copy some util-linux stuff.
+        copy_bin_and_libs ${pkgs.util-linux}/sbin/blkid
+
         # Copy modprobe.
         copy_bin_and_libs ${pkgs.kmod}/bin/kmod
         ln -sf kmod $out/bin/modprobe
@@ -183,6 +186,7 @@ let
         # Make sure that the patchelf'ed binaries still work.
         echo "testing patched programs..."
         $out/bin/ash -c 'echo hello world' | grep "hello world"
+        $out/bin/blkid -v | grep "blkid from util-linux"
         ${
           if zfsRequiresMountHelper then
             ''
@@ -198,10 +202,13 @@ let
       ''; # */
 
   initialScripts = {
-    defines = noDepEntry ''
-      systemConfig=@systemConfig@
+    shebang = noDepEntry ''
+      #! ${extraUtils}/bin/ash
+    '';
+
+    defines = fullDepEntry ''
       targetRoot=/mnt-root
-      console=tty1
+      console=/dev/console
       extraUtils=${extraUtils}
       export LD_LIBRARY_PATH=${extraUtils}/lib
       export PATH=${extraUtils}/bin
@@ -245,10 +252,10 @@ let
           read -n 1 reply
 
           if [ -n "$allowShell" -a "$reply" = f ]; then
-              exec setsid $SHELL -c "exec $SHELL < /dev/$console >/dev/$console 2>/dev/$console"
+              exec setsid $SHELL -c "exec $SHELL < $console >$console 2>$console"
           elif [ -n "$allowShell" -a "$reply" = i ]; then
               echo "Starting interactive shell..."
-              setsid $SHELL -c "exec $SHELL < /dev/$console >/dev/$console 2>/dev/$console" || fail
+              setsid $SHELL -c "exec $SHELL < $console >$console 2>$console" || fail
           elif [ "$reply" = r ]; then
               echo "Rebooting..."
               reboot -f
@@ -261,17 +268,18 @@ let
 
       # Print a greeting.
       info
-      info "[1;32m<<< ${config.system.nixos.distroName} Stage 1 >>>[0m"
+      info "[1;31m<[1;97m<[1;32m< [1;97m${config.system.nixos.distroName} Stage 1 [1;32m>[1;97m>[1;31m>[0m"
       info
-    '';
+    '' [ "shebang" ];
 
     specialMounts = fullDepEntry ''
-mkdir /dev /proc /sys
-mount -t devtmpfs none /dev
-mkdir /dev/pts
-mount -t proc none /proc
-mount -t sysfs none /sys
-'' [ "defines" ];
+      mkdir -p /proc /sys /dev
+      mount -t proc none /proc
+      mount -t sysfs none /sys
+      mount -t devtmpfs none /dev
+      mkdir /dev/pts
+      mount -t devpts none /dev/pts
+    '' [ "defines" ];
 
     # Process the kernel command line.
     cmdline = fullDepEntry ''
@@ -282,7 +290,7 @@ mount -t sysfs none /sys
                   set -- $(IFS==; echo $o)
                   params=$2
                   set -- $(IFS=,; echo $params)
-                  console=$1
+                  console=/dev/$1
                   ;;
               init=*)
                   set -- $(IFS==; echo $o)
@@ -353,9 +361,29 @@ mount -t sysfs none /sys
           info "loading module $(basename $i)..."
           modprobe $i
       done
+      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
+      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
     '' [ "cmdline" ];
 
-    preMount = packEntry [ "modprobe" ];
+    populateDevDisk = fullDepEntry ''
+      mkdir -p /dev/disk/by-label /dev/disk/by-uuid
+      blkid -o export |while read line
+      do
+        case $line in
+          DEVNAME=*) eval $line;;
+          LABEL=*)
+            eval $line
+            ln -sv $DEVNAME "/dev/disk/by-label/$LABEL"
+            ;;
+          UUID=*)
+            eval $line
+            ln -sv $DEVNAME "/dev/disk/by-uuid/$UUID"
+            ;;
+        esac
+      done
+      '' [ "modprobe" ];
+
+    preMount = packEntry [ "populateDevDisk" ];
 
     mount = fullDepEntry ''
       # Create the mount point if required.
@@ -597,23 +625,21 @@ mount -t sysfs none /sys
       mount --move /dev $targetRoot/dev
       mount --move /run $targetRoot/run
     '' [ "mount" ];
+
+    execStage2 = fullDepEntry ''
+      exec env -i $(type -P switch_root) "$targetRoot" "$stage2Init"
+    '' [ "mountMove" ];
   };
 
   bootStage1 = pkgs.writeTextFile {
     name = "stage-1-init.sh";
     executable = true;
     text = lib.concatStringsSep "\n" (
-      lib.flatten [
-        "#! ${extraUtils}/bin/ash"
-        # TODO: not initialScripts, use config.synit.initrd.stage1Scripts.
-        (lib.textClosureList initialScripts [
-          "defines"
-          "mountMove"
-        ])
-        ''
-          exec env -i $(type -P switch_root) "$targetRoot" "$stage2Init"
-        ''
-      ]
+      # TODO: not initialScripts, use config.synit.initrd.stage1Scripts.
+      (lib.textClosureList initialScripts [
+        "shebang"
+        "execStage2"
+      ])
     );
     checkPhase = ''
       echo checking script syntax
