@@ -199,18 +199,28 @@ let
 
   initialScripts = {
     defines = noDepEntry ''
-      stage2init=${pkgs.synit-pid1}
+      systemConfig=@systemConfig@
       targetRoot=/mnt-root
       console=tty1
-      extraUtils ${extraUtils}
+      extraUtils=${extraUtils}
       export LD_LIBRARY_PATH=${extraUtils}/lib
       export PATH=${extraUtils}/bin
 
-      ${if config.boot.initrd.verbose then ''info() {echo "$@"}'' else ''info() {}''}
+      ${
+        if config.boot.initrd.verbose then
+          ''
+            info() {
+              echo "$@"
+            }
+          ''
+        else
+          ''
+            info() {
+            }
+          ''
+      }
       fail() {
           if [ -n "$panicOnFail" ]; then exit 1; fi
-
-          @preFailCommands@
 
           # If starting stage 2 failed, allow the user to repair the problem
           # in an interactive shell.
@@ -235,10 +245,10 @@ let
           read -n 1 reply
 
           if [ -n "$allowShell" -a "$reply" = f ]; then
-              exec setsid @shell@ -c "exec @shell@ < /dev/$console >/dev/$console 2>/dev/$console"
+              exec setsid $SHELL -c "exec $SHELL < /dev/$console >/dev/$console 2>/dev/$console"
           elif [ -n "$allowShell" -a "$reply" = i ]; then
               echo "Starting interactive shell..."
-              setsid @shell@ -c "exec @shell@ < /dev/$console >/dev/$console 2>/dev/$console" || fail
+              setsid $SHELL -c "exec $SHELL < /dev/$console >/dev/$console 2>/dev/$console" || fail
           elif [ "$reply" = r ]; then
               echo "Rebooting..."
               reboot -f
@@ -251,31 +261,342 @@ let
 
       # Print a greeting.
       info
-      info "[1;32m<<< @distroName@ Stage 1 >>>[0m"
+      info "[1;32m<<< ${config.system.nixos.distroName} Stage 1 >>>[0m"
       info
     '';
+
+    specialMounts = fullDepEntry ''
+mkdir /dev /proc /sys
+mount -t devtmpfs none /dev
+mkdir /dev/pts
+mount -t proc none /proc
+mount -t sysfs none /sys
+'' [ "defines" ];
+
+    # Process the kernel command line.
+    cmdline = fullDepEntry ''
+      export stage2Init=/init
+      for o in $(cat /proc/cmdline); do
+          case $o in
+              console=*)
+                  set -- $(IFS==; echo $o)
+                  params=$2
+                  set -- $(IFS=,; echo $params)
+                  console=$1
+                  ;;
+              init=*)
+                  set -- $(IFS==; echo $o)
+                  stage2Init=$2
+                  ;;
+              boot.persistence=*)
+                  set -- $(IFS==; echo $o)
+                  persistence=$2
+                  ;;
+              boot.persistence.opt=*)
+                  set -- $(IFS==; echo $o)
+                  persistence_opt=$2
+                  ;;
+              boot.trace|debugtrace)
+                  # Show each command.
+                  set -x
+                  ;;
+              boot.shell_on_fail)
+                  allowShell=1
+                  ;;
+              boot.debug1|debug1) # stop right away
+                  allowShell=1
+                  fail
+                  ;;
+              boot.debug1devices) # stop after loading modules and creating device nodes
+                  allowShell=1
+                  debug1devices=1
+                  ;;
+              boot.debug1mounts) # stop after mounting file systems
+                  allowShell=1
+                  debug1mounts=1
+                  ;;
+              boot.panic_on_fail|stage1panic=1)
+                  panicOnFail=1
+                  ;;
+              root=*)
+                  # If a root device is specified on the kernel command
+                  # line, make it available through the symlink /dev/root.
+                  # Recognise LABEL= and UUID= to support UNetbootin.
+                  set -- $(IFS==; echo $o)
+                  if [ $2 = "LABEL" ]; then
+                      root="/dev/disk/by-label/$3"
+                  elif [ $2 = "UUID" ]; then
+                      root="/dev/disk/by-uuid/$3"
+                  else
+                      root=$2
+                  fi
+                  ln -s "$root" /dev/root
+                  ;;
+              copytoram)
+                  copytoram=1
+                  ;;
+              findiso=*)
+                  # if an iso name is supplied, try to find the device where
+                  # the iso resides on
+                  set -- $(IFS==; echo $o)
+                  isoPath=$2
+                  ;;
+          esac
+      done
+    '' [ "specialMounts" ];
 
     # Load the required kernel modules.
     modprobe = fullDepEntry ''
       # Load the required kernel modules.
-      echo @extraUtils@/bin/modprobe > /proc/sys/kernel/modprobe
-      for i in @kernelModules@; do
+      echo ${extraUtils}/bin/modprobe > /proc/sys/kernel/modprobe
+      for i in ${toString config.boot.initrd.kernelModules}; do
           info "loading module $(basename $i)..."
           modprobe $i
       done
-    '' [ "defines" ];
+    '' [ "cmdline" ];
 
     preMount = packEntry [ "modprobe" ];
 
-    mount = fullDepEntry (lib.concatStringsSep "\n" (
-      map (
-        fs:
-        "mount -t ${fs.fsType} ${
-          optionalString (fs.options != [ ])
-            "-o ${builtins.concatStringsSep "," (lib.filter (s: !(lib.strings.hasPrefix "x-" s)) fs.options)}"
-        } ${if fs.device != null then fs.device else "/dev/disk/by-label/${fs.label}"} ${fs.mountPoint}"
-      ) fileSystems
-    )) [ "preMount" ];
+    mount = fullDepEntry ''
+      # Create the mount point if required.
+      makeMountPoint() {
+          local device="$1"
+          local mountPoint="$2"
+          local options="$3"
+
+          local IFS=,
+
+          # If we're bind mounting a file, the mount point should also be a file.
+          if ! [ -d "$device" ]; then
+              for opt in $options; do
+                  if [ "$opt" = bind ] || [ "$opt" = rbind ]; then
+                      mkdir -p "$(dirname "/mnt-root$mountPoint")"
+                      touch "/mnt-root$mountPoint"
+                      return
+                  fi
+              done
+          fi
+
+          mkdir -m 0755 -p "/mnt-root$mountPoint"
+      }
+
+      # Mount special file systems.
+      specialMount() {
+        local device="$1"
+        local mountPoint="$2"
+        local options="$3"
+        local fsType="$4"
+
+        mkdir -m 0755 -p "$mountPoint"
+        mount -n -t "$fsType" -o "$options" "$device" "$mountPoint"
+      }
+
+      source ${config.system.build.earlyMountScript}
+
+      # Check the specified file system, if appropriate.
+      checkFS() {
+          local device="$1"
+          local fsType="$2"
+
+          # Only check block devices.
+          if [ ! -b "$device" ]; then return 0; fi
+
+          # Don't check ROM filesystems.
+          if [ "$fsType" = iso9660 -o "$fsType" = udf ]; then return 0; fi
+
+          # Don't check resilient COWs as they validate the fs structures at mount time
+          if [ "$fsType" = btrfs -o "$fsType" = zfs -o "$fsType" = bcachefs ]; then return 0; fi
+
+          # Skip fsck for apfs as the fsck utility does not support repairing the filesystem (no -a option)
+          if [ "$fsType" = apfs ]; then return 0; fi
+
+          # Skip fsck for nilfs2 - not needed by design and no fsck tool for this filesystem.
+          if [ "$fsType" = nilfs2 ]; then return 0; fi
+
+          # Skip fsck for inherently readonly filesystems.
+          if [ "$fsType" = squashfs ]; then return 0; fi
+
+          # Skip fsck.erofs because it is still experimental.
+          if [ "$fsType" = erofs ]; then return 0; fi
+
+          # If we couldn't figure out the FS type, then skip fsck.
+          if [ "$fsType" = auto ]; then
+              echo 'cannot check filesystem with type "auto"!'
+              return 0
+          fi
+
+          # Device might be already mounted manually
+          # e.g. NBD-device or the host filesystem of the file which contains encrypted root fs
+          if mount | grep -q "^$device on "; then
+              echo "skip checking already mounted $device"
+              return 0
+          fi
+
+          # Optionally, skip fsck on journaling filesystems.  This option is
+          # a hack - it's mostly because e2fsck on ext3 takes much longer to
+          # recover the journal than the ext3 implementation in the kernel
+          # does (minutes versus seconds).
+          ${lib.optionalString config.boot.initrd.checkJournalingFS ''
+            if test -a \
+                \( "$fsType" = ext3 -o "$fsType" = ext4 -o "$fsType" = reiserfs \
+                -o "$fsType" = xfs -o "$fsType" = jfs -o "$fsType" = f2fs \)
+            then
+                return 0
+            fi
+          ''}
+
+          echo "checking $device..."
+
+          fsck -V -a "$device"
+          fsckResult=$?
+
+          if test $(($fsckResult | 2)) = $fsckResult; then
+              echo "fsck finished, rebooting..."
+              sleep 3
+              reboot -f
+          fi
+
+          if test $(($fsckResult | 4)) = $fsckResult; then
+              echo "$device has unrepaired errors, please fix them manually."
+              fail
+          fi
+
+          if test $fsckResult -ge 8; then
+              echo "fsck on $device failed."
+              fail
+          fi
+
+          return 0
+      }
+
+      # Function for mounting a file system.
+      mountFS() {
+          local device="$1"
+          local mountPoint="$2"
+          local options="$3"
+          local fsType="$4"
+
+          if [ "$fsType" = auto ]; then
+              fsType=$(blkid -o value -s TYPE "$device")
+              if [ -z "$fsType" ]; then fsType=auto; fi
+          fi
+
+          # Filter out x- options, which busybox doesn't do yet.
+          local optionsFiltered="$(IFS=,; for i in $options; do if [ "''${i:0:2}" != "x-" ]; then echo -n $i,; fi; done)"
+          # Prefix (lower|upper|work)dir with /mnt-root (overlayfs)
+          local optionsPrefixed="$( echo "$optionsFiltered" | sed -E 's#\<(lowerdir|upperdir|workdir)=#\1=/mnt-root#g' )"
+
+          echo "$device /mnt-root$mountPoint $fsType $optionsPrefixed" >> /etc/fstab
+
+          checkFS "$device" "$fsType"
+
+          # Create backing directories for overlayfs
+          if [ "$fsType" = overlay ]; then
+              for i in upper work; do
+                   dir="$( echo "$optionsPrefixed" | grep -o "''${i}dir=[^,]*" )"
+                   mkdir -m 0700 -p "''${dir##*=}"
+              done
+          fi
+
+          info "mounting $device on $mountPoint..."
+
+          makeMountPoint "$device" "$mountPoint" "$optionsPrefixed"
+
+          # For ZFS and CIFS mounts, retry a few times before giving up.
+          # We do this for ZFS as a workaround for issue NixOS/nixpkgs#25383.
+          local n=0
+          while true; do
+              mount "/mnt-root$mountPoint" && break
+              if [ \( "$fsType" != cifs -a "$fsType" != zfs \) -o "$n" -ge 10 ]; then fail; break; fi
+              echo "retrying..."
+              sleep 1
+              n=$((n + 1))
+          done
+
+          # For bind mounts, busybox has a tendency to ignore options, which can be a
+          # security issue (e.g. "nosuid"). Remounting the partition seems to fix the
+          # issue.
+          mount "/mnt-root$mountPoint" -o "remount,$optionsPrefixed"
+
+          [ "$mountPoint" == "/" ] &&
+              [ -f "/mnt-root/etc/NIXOS_LUSTRATE" ] &&
+              lustrateRoot "/mnt-root"
+
+          true
+      }
+
+      lustrateRoot () {
+          local root="$1"
+
+          echo
+          echo -e "\e[1;33m<<< @distroName@ is now lustrating the root filesystem (cruft goes to /old-root) >>>\e[0m"
+          echo
+
+          mkdir -m 0755 -p "$root/old-root.tmp"
+
+          echo
+          echo "Moving impurities out of the way:"
+          for d in "$root"/*
+          do
+              [ "$d" == "$root/nix"          ] && continue
+              [ "$d" == "$root/boot"         ] && continue # Don't render the system unbootable
+              [ "$d" == "$root/old-root.tmp" ] && continue
+
+              mv -v "$d" "$root/old-root.tmp"
+          done
+
+          # Use .tmp to make sure subsequent invocations don't clash
+          mv -v "$root/old-root.tmp" "$root/old-root"
+
+          mkdir -m 0755 -p "$root/etc"
+          touch "$root/etc/NIXOS"
+
+          exec 4< "$root/old-root/etc/NIXOS_LUSTRATE"
+
+          echo
+          echo "Restoring selected impurities:"
+          while read -u 4 keeper; do
+              dirname="$(dirname "$keeper")"
+              mkdir -m 0755 -p "$root/$dirname"
+              cp -av "$root/old-root/$keeper" "$root/$keeper"
+          done
+
+          exec 4>&-
+      }
+
+      ${lib.concatStringsSep "\n" (
+        map (
+          fs:
+          "mountFS ${
+            if fs.device != null then fs.device else "/dev/disk/by-label/${fs.label}"
+          } ${fs.mountPoint} ${builtins.concatStringsSep "," fs.options} ${fs.fsType}"
+        ) fileSystems
+      )}'' [ "preMount" ];
+
+    mountMove = fullDepEntry ''
+      # Restore /proc/sys/kernel/modprobe to its original value.
+      echo /sbin/modprobe > /proc/sys/kernel/modprobe
+
+      # Start stage 2.  `switch_root' deletes all files in the ramfs on the
+      # current root.  The path has to be valid in the chroot not outside.
+      if [ ! -e "$targetRoot/$stage2Init" ]; then
+          stage2Check="$stage2Init"
+          while [ "$stage2Check" != "''${stage2Check%/*}" ] && [ ! -L "$targetRoot/$stage2Check" ]; do
+              stage2Check=''${stage2Check%/*}
+          done
+          if [ ! -L "$targetRoot/$stage2Check" ]; then
+              echo "stage 2 init script ($targetRoot/$stage2Init) not found"
+              fail
+          fi
+      fi
+
+      mkdir -m 0755 -p $targetRoot/proc $targetRoot/sys $targetRoot/dev $targetRoot/run
+
+      mount --move /proc $targetRoot/proc
+      mount --move /sys $targetRoot/sys
+      mount --move /dev $targetRoot/dev
+      mount --move /run $targetRoot/run
+    '' [ "mount" ];
   };
 
   bootStage1 = pkgs.writeTextFile {
@@ -283,12 +604,15 @@ let
     executable = true;
     text = lib.concatStringsSep "\n" (
       lib.flatten [
-        "#! ${extraUtils}/bin/ash}"
+        "#! ${extraUtils}/bin/ash"
+        # TODO: not initialScripts, use config.synit.initrd.stage1Scripts.
         (lib.textClosureList initialScripts [
           "defines"
-          "mount"
+          "mountMove"
         ])
-        "exec $stage2Init"
+        ''
+          exec env -i $(type -P switch_root) "$targetRoot" "$stage2Init"
+        ''
       ]
     );
     checkPhase = ''
@@ -446,6 +770,7 @@ in
       '';
     };
   };
+
   config = mkIf config.synit.enable {
 
     synit.initrd.stage1Scripts =
