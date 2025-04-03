@@ -103,6 +103,9 @@ let
           copy_bin_and_libs $BIN
         done
 
+        # Copy s6 utils.
+        copy_bin_and_libs ${pkgs.s6-linux-utils}/bin/s6-mount
+
         ${optionalString zfsRequiresMountHelper ''
           # Filesystems using the "zfsutil" option are mounted regardless of the
           # mount.zfs(8) helper, but it is required to ensure that ZFS properties
@@ -201,6 +204,39 @@ let
         fi
       ''; # */
 
+  fileSystemsList =
+    fsAttrs:
+    with builtins;
+    lib.pipe fsAttrs [
+      attrValues
+      (filter (getAttr "enable"))
+      (lib.toposort utils.fsBefore)
+      (getAttr "result")
+    ];
+
+  execlineMount =
+    {
+      fsType,
+      options,
+      device,
+      mountPoint,
+      ...
+    }:
+    [
+      "\nforeground { mkdir -m 0755 -p"
+      mountPoint
+      "}"
+      "\nif { s6-mount -t"
+      fsType
+      (lib.optionals (options != [ ]) [
+        "-o"
+        (lib.concatStringsSep "," (lib.filter (s: !lib.hasPrefix "x-" s) options))
+      ])
+      device
+      mountPoint
+      "}"
+    ];
+
   initialScripts = {
     shebang = noDepEntry ''
       #! ${extraUtils}/bin/ash
@@ -272,14 +308,27 @@ let
       info
     '' [ "shebang" ];
 
-    specialMounts = fullDepEntry ''
-      mkdir -p /proc /sys /dev
-      mount -t proc none /proc
-      mount -t sysfs none /sys
-      mount -t devtmpfs none /dev
-      mkdir /dev/pts
-      mount -t devpts none /dev/pts
-    '' [ "defines" ];
+    specialMounts = fullDepEntry (pkgs.writeTextFile {
+      name = "special-mounts.sh";
+      executable = true;
+      text = ''
+        #! ${extraUtils}/bin/execlineb
+        ${toString (map execlineMount (fileSystemsList config.boot.specialFileSystems))}
+        true
+      '';
+    }) [ "defines" ];
+
+    # Load the required kernel modules.
+    modprobe = fullDepEntry ''
+      # Load the required kernel modules.
+      echo ${extraUtils}/bin/modprobe > /proc/sys/kernel/modprobe
+      for i in ${toString config.boot.initrd.kernelModules}; do
+          info "loading module $(basename $i)..."
+          modprobe $i
+      done
+      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
+      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
+    '' [ "specialMounts" ];
 
     # Process the kernel command line.
     cmdline = fullDepEntry ''
@@ -351,37 +400,31 @@ let
                   ;;
           esac
       done
-    '' [ "specialMounts" ];
+    '' [ "defines" ];
 
-    # Load the required kernel modules.
-    modprobe = fullDepEntry ''
-      # Load the required kernel modules.
-      echo ${extraUtils}/bin/modprobe > /proc/sys/kernel/modprobe
-      for i in ${toString config.boot.initrd.kernelModules}; do
-          info "loading module $(basename $i)..."
-          modprobe $i
-      done
-      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
-      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
-    '' [ "cmdline" ];
-
-    populateDevDisk = fullDepEntry ''
-      mkdir -p /dev/disk/by-label /dev/disk/by-uuid
-      blkid -o export |while read line
-      do
-        case $line in
-          DEVNAME=*) eval $line;;
-          LABEL=*)
-            eval $line
-            ln -sv $DEVNAME "/dev/disk/by-label/$LABEL"
-            ;;
-          UUID=*)
-            eval $line
-            ln -sv $DEVNAME "/dev/disk/by-uuid/$UUID"
-            ;;
-        esac
-      done
-      '' [ "modprobe" ];
+    populateDevDisk =
+      fullDepEntry
+        ''
+          mkdir -p /dev/disk/by-label /dev/disk/by-uuid
+          blkid -o export |while read line
+          do
+            case $line in
+              DEVNAME=*) eval $line;;
+              LABEL=*)
+                eval $line
+                ln -sv $DEVNAME "/dev/disk/by-label/$LABEL"
+                ;;
+              UUID=*)
+                eval $line
+                ln -sv $DEVNAME "/dev/disk/by-uuid/$UUID"
+                ;;
+            esac
+          done
+        ''
+        [
+          "specialMounts"
+          "modprobe"
+        ];
 
     preMount = packEntry [ "populateDevDisk" ];
 
@@ -407,19 +450,6 @@ let
 
           mkdir -m 0755 -p "/mnt-root$mountPoint"
       }
-
-      # Mount special file systems.
-      specialMount() {
-        local device="$1"
-        local mountPoint="$2"
-        local options="$3"
-        local fsType="$4"
-
-        mkdir -m 0755 -p "$mountPoint"
-        mount -n -t "$fsType" -o "$options" "$device" "$mountPoint"
-      }
-
-      source ${config.system.build.earlyMountScript}
 
       # Check the specified file system, if appropriate.
       checkFS() {
@@ -626,9 +656,15 @@ let
       mount --move /run $targetRoot/run
     '' [ "mount" ];
 
-    execStage2 = fullDepEntry ''
-      exec env -i $(type -P switch_root) "$targetRoot" "$stage2Init"
-    '' [ "mountMove" ];
+    execStage2 =
+      fullDepEntry
+        ''
+          exec env -i $(type -P switch_root) "$targetRoot" "$stage2Init"
+        ''
+        [
+          "cmdline"
+          "mountMove"
+        ];
   };
 
   bootStage1 = pkgs.writeTextFile {

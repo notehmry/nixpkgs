@@ -46,21 +46,6 @@ let
           mount -n -o remount,rw none /
       fi
 
-      # Likewise, stage 1 mounts /proc, /dev and /sys, so if we don't have a
-      # stage 1, we need to do that here.
-      if [ ! -e /proc/1 ]; then
-          specialMount() {
-              local device="$1"
-              local mountPoint="$2"
-              local options="$3"
-              local fsType="$4"
-
-              install -m 0755 -d "$mountPoint"
-              mount -n -t "$fsType" -o "$options" "$device" "$mountPoint"
-          }
-          source ${config.system.build.earlyMountScript}
-      fi
-
       if [ -c /dev/kmsg ] ; then
           echo "booting system configuration $systemConfig" > /dev/kmsg
       else
