@@ -312,23 +312,28 @@ let
       name = "special-mounts.sh";
       executable = true;
       text = ''
-        #! ${extraUtils}/bin/execlineb
+        #! ${pkgs.execline}/bin/execlineb
         ${toString (map execlineMount (fileSystemsList config.boot.specialFileSystems))}
         true
       '';
     }) [ "defines" ];
 
     # Load the required kernel modules.
-    modprobe = fullDepEntry ''
-      # Load the required kernel modules.
-      echo ${extraUtils}/bin/modprobe > /proc/sys/kernel/modprobe
-      for i in ${toString config.boot.initrd.kernelModules}; do
-          info "loading module $(basename $i)..."
-          modprobe $i
-      done
-      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
-      find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a && true
-    '' [ "specialMounts" ];
+    modprobe = fullDepEntry (pkgs.writeTextFile {
+      name = "moprobe.sh";
+      executable = true;
+      text = ''
+        #! ${pkgs.execline}/bin/execlineb
+        if { modprobe -a ${toString config.boot.initrd.kernelModules} }
+        pipeline { find /sys -name modalias -type f -exec cat {} + }
+        backtick -E MODULES { sort -u }
+        modprobe -a -b $MODULES
+        pipeline { find /sys -name modalias -type f -exec cat {} + }
+        backtick -E MODULES { sort -u }
+        modprobe -a -b $MODULES
+        true
+      '';
+      }) [ "specialMounts" ];
 
     # Process the kernel command line.
     cmdline = fullDepEntry ''
@@ -400,7 +405,7 @@ let
                   ;;
           esac
       done
-    '' [ "defines" ];
+    '' [ "specialMounts" ];
 
     populateDevDisk =
       fullDepEntry
