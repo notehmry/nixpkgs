@@ -11,6 +11,7 @@ in
 {
   options.synit = {
     enable = lib.mkEnableOption "Synit system layer";
+    pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
   };
 
   config = lib.mkIf cfg.enable {
@@ -20,6 +21,14 @@ in
         message = "Synit and systemd cannot both be enabled";
       }
     ];
+
+    environment.systemPackages = builtins.attrValues {
+      inherit (pkgs) syndicate-server;
+      synit-log = pkgs.writeScriptBin "synit-log" ''
+        #!${lib.getExe pkgs.execline} -S0
+        ${pkgs.s6}/bin/s6-log t /var/log/synit
+      '';
+    };
 
     systemd.enable = false;
     systemd.package = pkgs.systemd.overrideAttrs (
