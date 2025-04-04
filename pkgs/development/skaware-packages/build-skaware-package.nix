@@ -39,6 +39,7 @@
   passthru ? { },
   # : attributes to be merged into meta
   broken ? false,
+  mainProgram ? null,
 }:
 
 let
@@ -152,7 +153,7 @@ stdenv.mkDerivation {
 
   meta = {
     homepage = "https://skarnet.org/software/${pname}/";
-    inherit broken description platforms;
+    inherit broken description mainProgram platforms;
     license = lib.licenses.isc;
     maintainers =
       with lib.maintainers;

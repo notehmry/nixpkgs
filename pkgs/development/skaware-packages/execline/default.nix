@@ -29,6 +29,8 @@ skawarePackages.buildPackage {
 
   description = "Small scripting language, to be used in place of a shell in non-interactive scripts";
 
+  mainProgram = "execlineb";
+
   outputs = [
     "bin"
     "lib"

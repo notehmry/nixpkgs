@@ -11,6 +11,7 @@ skawarePackages.buildPackage {
 
   description = "mdev-compatible Linux hotplug manager daemon";
   platforms = lib.platforms.linux;
+  mainProgram = "mdevd";
 
   outputs = [
     "bin"
