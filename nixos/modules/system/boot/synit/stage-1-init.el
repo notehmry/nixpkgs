@@ -6,6 +6,30 @@ background { s6-echo "\n[1;32m<[1;97m<[1;90m<[1;31m<[1;97m @distroName@ Sta
 
 @specialMounts@
 
+# Handle the kernel parameters.
+foreground {
+  redirfd -r 0 /proc/cmdline
+  forstdin -E -d " " arg case -N $arg {
+    init=(.*) {
+      importas init 1
+      s6-ln -s "${init}" /run/init
+    }
+    root=(.*) {
+      importas root 1
+      s6-ln -s "${root}" /dev/root
+    }
+    root=LABEL=(.*) {
+      importas v 1
+      s6-ln -s "/dev/disk/by-label/${v}" /dev/root
+    }
+    root=UUID=(.*) {
+      importas v 1
+      s6-ln -s "/dev/disk/by-uuid/${v}" /dev/root
+    }
+  }
+  exit
+}
+
 foreground {
   redirfd -w 1 /proc/sys/kernel/modprobe
   s6-echo @extraUtils@/bin/modprobe
@@ -23,7 +47,7 @@ foreground { mdevd-coldplug -v 3 -O 2 }
 background { kill $mdevd_pid }
 
 # Create symlinks in /dev/disk.
-if{ s6-mkdir -p /dev/disk/by-label /dev/disk/by-uuid }
+if { s6-mkdir -p /dev/disk/by-label /dev/disk/by-uuid }
 if { forbacktickx -pE val { blkid --match-tag LABEL --output value }
   backtick -E dev { blkid --label $val } ln -s $dev /dev/disk/by-label/$val
 }
@@ -43,4 +67,5 @@ if {
 background { s6-echo "waiting for children to exit" }
 wait { }
 
-s6-echo switch_root /mnt-root /run/init
+# Wipe the current root and exec in /mnt-root.
+switch_root /mnt-root /run/init

@@ -116,6 +116,8 @@ let
 
         # Copy some util-linux stuff.
         copy_bin_and_libs ${pkgs.util-linux}/sbin/blkid
+        copy_bin_and_libs ${pkgs.util-linux}/sbin/kill
+        copy_bin_and_libs ${pkgs.util-linux}/sbin/switch_root
 
         # Copy modprobe.
         copy_bin_and_libs ${pkgs.kmod}/bin/kmod
@@ -244,10 +246,10 @@ let
     read -n 1 reply
 
     if [ -n "$allowShell" -a "$reply" = f ]; then
-        exec setsid $SHELL -c "exec $SHELL < $console >$console 2>$console"
+        exec setsid $SHELL -c "exec $SHELL < /dev/console >/dev/console 2>/dev/console"
     elif [ -n "$allowShell" -a "$reply" = i ]; then
         echo "Starting interactive shell..."
-        setsid $SHELL -c "exec $SHELL < $console >$console 2>$console" || fail
+        setsid $SHELL -c "exec $SHELL < /dev/console >/dev/console 2>/dev/console" || fail
     elif [ "$reply" = r ]; then
         echo "Rebooting..."
         reboot -f
