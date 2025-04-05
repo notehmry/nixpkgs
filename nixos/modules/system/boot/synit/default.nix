@@ -6,12 +6,50 @@
 }:
 
 let
+  inherit (lib) mkOption types;
   cfg = config.synit;
 in
 {
   options.synit = {
     enable = lib.mkEnableOption "Synit system layer";
     pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
+
+    daemons = mkOption {
+      description = ''
+        Definitions of daemons to assert into the Synit configuration dataspace.";
+      '';
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            argv = mkOption {
+              description = ''
+                Daemon command line.
+                See [
+                  https://synit.org/book/operation/builtin/daemon.html
+                ](https://synit.org/book/operation/builtin/daemon.html#adding-process-specifications-to-a-service).
+              '';
+              type = with types; either str (listOf str);
+            };
+            restart = mkOption {
+              description = ''
+                Daemon restart policy.
+                See [
+                  https://synit.org/book/operation/builtin/daemon.html
+                ](https://synit.org/book/operation/builtin/daemon.html#whether-and-when-to-restart).
+              '';
+              type = types.enum [
+                "always"
+                "on-error"
+                "all"
+                "never"
+              ];
+              default = "always";
+            };
+          };
+        }
+      );
+    };
+
   };
 
   config = lib.mkIf cfg.enable {
@@ -31,18 +69,22 @@ in
     };
 
     systemd.enable = false;
-    systemd.package = pkgs.systemd.overrideAttrs (
-      { meta, ... }:
-      {
-        meta = meta // {
-          broken = true;
-        };
-      }
-    );
+
+    /*
+      systemd.package = pkgs.systemd.overrideAttrs (
+        { meta, ... }:
+        {
+          meta = meta // {
+            broken = true;
+          };
+        }
+      );
+    */
+
   };
 
   meta = {
     maintainers = with lib.maintainers; [ ehmry ];
-    doc = ./todo.md;
+    # doc = ./todo.md;
   };
 }
