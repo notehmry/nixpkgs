@@ -7,7 +7,13 @@
 
 let
   inherit (lib) mkOption types;
+  format = pkgs.formats.preserves {
+    ignoreNulls = true;
+    rawStrings = true;
+  };
+  writePreservesFile = format.generate;
   cfg = config.synit;
+  mkIfSynit = lib.mkIf cfg.enable;
 in
 {
   options.synit = {
@@ -29,7 +35,7 @@ in
                   https://synit.org/book/operation/builtin/daemon.html
                 ](https://synit.org/book/operation/builtin/daemon.html#adding-process-specifications-to-a-service).
               '';
-              type = with types; either str (listOf str);
+              type = with types; either str (listOf (either str path));
             };
             clearEnv = mkOption {
               description = ''
@@ -107,23 +113,25 @@ in
 
   };
 
-  config = lib.mkIf cfg.enable {
-    assertions = [
+  config = {
+    assertions = mkIfSynit [
       {
         assertion = !config.systemd.enable;
         message = "Synit and systemd cannot both be enabled";
       }
     ];
 
-    environment.systemPackages = builtins.attrValues {
-      inherit (pkgs) syndicate-server;
-      synit-log = pkgs.writeScriptBin "synit-log" ''
-        #!${lib.getExe pkgs.execline} -S0
-        ${pkgs.s6}/bin/s6-log t /var/log/synit
-      '';
-    };
+    environment.systemPackages = mkIfSynit (
+      builtins.attrValues {
+        inherit (pkgs) syndicate-server;
+        synit-log = pkgs.writeScriptBin "synit-log" ''
+          #!${lib.getExe pkgs.execline} -S0
+          ${pkgs.s6}/bin/s6-log t /var/log/synit
+        '';
+      }
+    );
 
-    systemd.enable = false;
+    systemd.enable = mkIfSynit false;
 
     /*
       systemd.package = pkgs.systemd.overrideAttrs (
@@ -136,6 +144,16 @@ in
       );
     */
 
+    system.build.synitDaemons = writePreservesFile "daemons.pr" (
+      lib.mapAttrsToList (name: attrs: [
+        name
+        (attrs // {
+          argv = builtins.toJSON attrs.argv;
+          env = if attrs.env == null then null else lib.mapAttrs builtins.toJSON attrs.env;
+        })
+        { _record = "daemon"; }
+      ]) config.synit.daemons
+    );
   };
 
   meta = {
