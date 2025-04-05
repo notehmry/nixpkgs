@@ -31,6 +31,60 @@ in
               '';
               type = with types; either str (listOf str);
             };
+            clearEnv = mkOption {
+              description = ''
+                Whether the Unix process environment is cleared or inherited.
+                See [
+                  https://synit.org/book/operation/builtin/daemon.html
+                ](https://synit.org/book/operation/builtin/daemon.html#specifying-subprocess-environment-variables).
+              '';
+              type = types.bool;
+              default = false;
+            };
+            dir = mkOption {
+              description = ''
+                Sets the working direcctory of a daemon.
+                See [
+                  https://synit.org/book/operation/builtin/daemon.html
+                ](https://synit.org/book/operation/builtin/daemon.html#setting-the-current-working-directory-for-a-subprocess).
+              '';
+              type = with types; nullOr str;
+              default = null;
+            };
+            env = mkOption {
+              description = ''
+                Sets Unix process environment for a daemon.
+                See [
+                  https://synit.org/book/operation/builtin/daemon.html
+                ](https://synit.org/book/operation/builtin/daemon.html#specifying-subprocess-environment-variables).
+              '';
+              type = with types; nullOr (attrsOf str);
+              default = null;
+            };
+            protocol = mkOption {
+              description = ''
+                Specify a protocol for communicating with a daemon over stdin and stdout.
+                See [
+                  https://synit.org/book/operation/builtin/daemon.html
+                ](https://synit.org/book/operation/builtin/daemon.html#speaking-syndicate-network-protocol-via-stdinstdout).
+              '';
+              type = types.enum [
+                "none"
+                "application/syndicate"
+                "text/syndicate"
+              ];
+              default = "none";
+            };
+            readyOnStart = mkOption {
+              description = ''
+                Whether a daemon should be considered ready immediately after startup.
+                See [
+                  https://synit.org/book/operation/builtin/daemon.html
+                ](https://synit.org/book/operation/builtin/daemon.html#ready-signalling).
+              '';
+              type = types.bool;
+              default = true;
+            };
             restart = mkOption {
               description = ''
                 Daemon restart policy.
