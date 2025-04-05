@@ -43,6 +43,8 @@ rec {
 
   php = (import ./formats/php/default.nix { inherit lib pkgs; }).format;
 
+  preserves = import ./formats/preserves.nix { inherit lib pkgs; };
+
   inherit (lib) mkOptionType;
   inherit (lib.types)
     nullOr

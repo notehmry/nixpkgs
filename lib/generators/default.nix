@@ -867,6 +867,8 @@ rec {
     _type = "lua-inline";
     inherit expr;
   };
+
+  toPreserves = import ./preserves.nix { inherit lib; };
 }
 // {
   /**
