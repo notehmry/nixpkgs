@@ -24,6 +24,7 @@ in
             argv = mkOption {
               description = ''
                 Daemon command line.
+                A string is executed in a shell whereas a list of strings is executed directly.
                 See [
                   https://synit.org/book/operation/builtin/daemon.html
                 ](https://synit.org/book/operation/builtin/daemon.html#adding-process-specifications-to-a-service).
