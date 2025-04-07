@@ -68,4 +68,5 @@ background { s6-echo "waiting for children to exit" }
 wait { }
 
 # Wipe the current root and exec in /mnt-root.
+emptyenv
 switch_root /mnt-root /run/init
