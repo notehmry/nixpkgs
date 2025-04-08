@@ -14,11 +14,22 @@ let
   writePreservesFile = format.generate;
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
+  synit-log = pkgs.writeScriptBin "synit-log" ''
+    #!${lib.getExe pkgs.execline} -S0
+    ${pkgs.s6}/bin/s6-log t /var/log/synit
+  '';
 in
 {
   options.synit = {
     enable = lib.mkEnableOption "Synit system layer";
     pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
+    syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
+    synit-log.package = lib.mkOption {
+      type = types.package;
+      default = synit-log;
+      defaultText = lib.literalExpression ''s6-log'';
+      description = "Logging program for synit-pid1";
+    };
 
     daemons = mkOption {
       description = ''
@@ -121,15 +132,7 @@ in
       }
     ];
 
-    environment.systemPackages = mkIfSynit (
-      builtins.attrValues {
-        inherit (pkgs) syndicate-server;
-        synit-log = pkgs.writeScriptBin "synit-log" ''
-          #!${lib.getExe pkgs.execline} -S0
-          ${pkgs.s6}/bin/s6-log t /var/log/synit
-        '';
-      }
-    );
+    environment.systemPackages = mkIfSynit [ cfg.syndicate-server.package ];
 
     systemd.enable = mkIfSynit false;
 
@@ -147,10 +150,13 @@ in
     system.build.synitDaemons = writePreservesFile "daemons.pr" (
       lib.mapAttrsToList (name: attrs: [
         name
-        (attrs // {
-          argv = builtins.toJSON attrs.argv;
-          env = if attrs.env == null then null else lib.mapAttrs builtins.toJSON attrs.env;
-        })
+        (
+          attrs
+          // {
+            argv = builtins.toJSON attrs.argv;
+            env = if attrs.env == null then null else lib.mapAttrs builtins.toJSON attrs.env;
+          }
+        )
         { _record = "daemon"; }
       ]) config.synit.daemons
     );
