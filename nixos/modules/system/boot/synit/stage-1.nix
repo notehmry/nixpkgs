@@ -274,7 +274,7 @@ let
     replacements = {
       inherit (config.system.nixos) distroName;
       inherit (config.boot.initrd) kernelModules;
-      inherit extraUtils failScript;
+      inherit extraUtils;
 
       execlineb = lib.getExe pkgs.execline;
       mdevdConf = pkgs.writeText "initramfs-mdevd.conf" ''

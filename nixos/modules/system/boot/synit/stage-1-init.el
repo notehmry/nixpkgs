@@ -1,13 +1,12 @@
-#!@execlineb@
+#!@execlineb@ -P
 export PATH @initramfsPath@
 export LD_LIBRARY_PATH @extraUtils@/lib
-trap { quit { @failScript@ } }
 background { s6-echo "\n[1;32m<[1;97m<[1;90m<[1;31m<[1;97m @distroName@ Stage 1 [1;31m>[1;90m>[1;97m>[1;32m>[0m\n" }
 
 @specialMounts@
 
 # Handle the kernel parameters.
-foreground {
+if {
   redirfd -r 0 /proc/cmdline
   forstdin -E -d " " arg case -N $arg {
     init=(.*) {
@@ -30,7 +29,7 @@ foreground {
   exit
 }
 
-foreground {
+if {
   redirfd -w 1 /proc/sys/kernel/modprobe
   s6-echo @extraUtils@/bin/modprobe
 }
@@ -55,7 +54,7 @@ if { forbacktickx -pE val { blkid --match-tag UUID --output value }
   backtick -E dev { blkid --uuid $val } ln -s $dev /dev/disk/by-uuid/$val
 }
 
-background { s6-echo starting normal mount script }
+foreground { s6-echo starting normal mount script }
 @normalMounts@
 
 if {
@@ -68,5 +67,4 @@ background { s6-echo "waiting for children to exit" }
 wait { }
 
 # Wipe the current root and exec in /mnt-root.
-emptyenv
 switch_root /mnt-root /run/init

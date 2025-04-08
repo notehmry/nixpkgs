@@ -62,6 +62,7 @@ ln -sfn "$systemConfig" /run/booted-system
 
 mkdir -p \
   /var/log/synit \
+  /etc/syndicate/boot \
   /run/etc/syndicate/core \
   /run/etc/syndicate/services \
   /run/etc/syndicate/machine \
