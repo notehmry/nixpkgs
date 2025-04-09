@@ -13,18 +13,6 @@ if {
       importas init 1
       s6-ln -s "${init}" /run/init
     }
-    root=(.*) {
-      importas root 1
-      s6-ln -s "${root}" /dev/root
-    }
-    root=LABEL=(.*) {
-      importas v 1
-      s6-ln -s "/dev/disk/by-label/${v}" /dev/root
-    }
-    root=UUID=(.*) {
-      importas v 1
-      s6-ln -s "/dev/disk/by-uuid/${v}" /dev/root
-    }
   }
   exit
 }
