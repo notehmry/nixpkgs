@@ -7,28 +7,47 @@
 
 let
   inherit (lib) mkOption types;
+  strOrPath = with types; either str path;
   format = pkgs.formats.preserves {
     ignoreNulls = true;
     rawStrings = true;
   };
   writePreservesFile = format.generate;
+
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
-  synit-log = pkgs.writeScriptBin "synit-log" ''
-    #!${lib.getExe pkgs.execline} -S0
-    ${pkgs.s6}/bin/s6-log t /var/log/synit
-  '';
+
+  systemBus = pkgs.writeTextFile {
+    name = "system-bus.el";
+    executable = true;
+    text = ''
+      #!${lib.getExe pkgs.execline} -s0
+      fdreserve 2
+      multisubstitute {
+        importas logr FD0
+        importas logw FD1
+      }
+      piperw $logr $logw
+      background {
+        fdmove 0 $logr
+        ${pkgs.s6}/bin/s6-log /var/log/synit
+      }
+      fdmove 2 $logw
+      ${lib.getExe cfg.syndicate-server.package} --inferior $@
+    '';
+  };
+
 in
 {
   options.synit = {
     enable = lib.mkEnableOption "Synit system layer";
-    pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
-    syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
-    synit-log.package = lib.mkOption {
-      type = types.package;
-      default = synit-log;
-      defaultText = lib.literalExpression ''s6-log'';
-      description = "Logging program for synit-pid1";
+     syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
+     pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
+     pid1.args = lib.mkOption {
+      type = types.listOf strOrPath;
+      default = [ systemBus ];
+      defaultText = lib.literalMD ''The `syndicate-server` wrapped by `s6-log`.'';
+      description = "";
     };
 
     daemons = mkOption {
@@ -46,7 +65,7 @@ in
                   https://synit.org/book/operation/builtin/daemon.html
                 ](https://synit.org/book/operation/builtin/daemon.html#adding-process-specifications-to-a-service).
               '';
-              type = with types; either str (listOf (either str path));
+              type = with types; either strOrPath (listOf strOrPath);
             };
             clearEnv = mkOption {
               description = ''

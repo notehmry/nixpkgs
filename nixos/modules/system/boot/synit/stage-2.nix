@@ -13,9 +13,8 @@
       replacements = {
         shell = "${pkgs.bash}/bin/bash";
         systemConfig = null; # replaced in ../activation/top-level.nix
-        synit-pid1 = lib.getExe config.synit.pid1.package;
-        syndicate-server = lib.getExe config.synit.syndicate-server.package;
-        synit-log = lib.getExe config.synit.synit-log.package;
+        synitPid1 = lib.getExe config.synit.pid1.package;
+        synitPid1Args = lib.escapeShellArgs config.synit.pid1.args;
         inherit (config.boot) readOnlyNixStore;
         inherit (config.system.nixos) distroName;
         path = lib.makeBinPath [
