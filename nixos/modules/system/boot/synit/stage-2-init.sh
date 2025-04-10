@@ -5,7 +5,9 @@ systemConfig=@systemConfig@
 export HOME=/root PATH="@path@"
 
 # Print a greeting.
-echo "\n[1;32m<[1;97m<[1;90m<[1;31m<[1;97m @distroName@ Stage 2 [1;31m>[1;90m>[1;97m>[1;32m>[0m\n"
+echo
+echo "[1;32m<[1;97m<[1;90m<[1;31m<[1;97m @distroName@ Stage 2 [1;31m>[1;90m>[1;97m>[1;32m>[0m"
+echo
 
 # Normally, stage 1 mounts the root filesystem read/writable.
 # However, in some environments, stage 2 is executed directly, and the
@@ -59,13 +61,6 @@ ln -sfn "$systemConfig" /run/booted-system
 
 # Run any user-specified commands.
 @shell@ @postBootCommands@
-
-mkdir -p \
-  /var/log/synit \
-  /etc/syndicate/boot \
-  /run/etc/syndicate/core \
-  /run/etc/syndicate/services \
-  /run/etc/syndicate/machine \
 
 # This tells Rust programs built with jemallocator to be very aggressive about keeping their
 # heaps small. Synit currently targets small machines. Without this, I have seen the system

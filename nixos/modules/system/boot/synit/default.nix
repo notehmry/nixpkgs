@@ -17,7 +17,7 @@ let
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
 
-  systemBus = pkgs.writeTextFile {
+  logWrapper = pkgs.writeTextFile {
     name = "system-bus.el";
     executable = true;
     text = ''
@@ -33,7 +33,7 @@ let
         ${pkgs.s6}/bin/s6-log /var/log/synit
       }
       fdmove 2 $logw
-      ${lib.getExe cfg.syndicate-server.package} --inferior $@
+      $@
     '';
   };
 
@@ -41,13 +41,18 @@ in
 {
   options.synit = {
     enable = lib.mkEnableOption "Synit system layer";
-     syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
-     pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
-     pid1.args = lib.mkOption {
+    syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
+    pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
+    pid1.args = lib.mkOption {
       type = types.listOf strOrPath;
-      default = [ systemBus ];
+      default = [
+        logWrapper
+        (lib.getExe cfg.syndicate-server.package)
+        "--inferior"
+        "--config"
+        "@systemConfig@/etc/syndicate/boot"
+      ];
       defaultText = lib.literalMD ''The `syndicate-server` wrapped by `s6-log`.'';
-      description = "";
     };
 
     daemons = mkOption {
@@ -143,28 +148,20 @@ in
 
   };
 
-  config = {
-    assertions = mkIfSynit [
+  config = mkIfSynit {
+    assertions = [
       {
         assertion = !config.systemd.enable;
         message = "Synit and systemd cannot both be enabled";
       }
     ];
 
-    environment.systemPackages = mkIfSynit [ cfg.syndicate-server.package ];
+    environment.etc = {
+      "syndicate/boot".source = ./boot;
+      "syndicate/core".source = ./core;
+    };
 
-    systemd.enable = mkIfSynit false;
-
-    /*
-      systemd.package = pkgs.systemd.overrideAttrs (
-        { meta, ... }:
-        {
-          meta = meta // {
-            broken = true;
-          };
-        }
-      );
-    */
+    environment.systemPackages = [ cfg.syndicate-server.package ];
 
     system.build.synitDaemons = writePreservesFile "daemons.pr" (
       lib.mapAttrsToList (name: attrs: [
@@ -179,6 +176,13 @@ in
         { _record = "daemon"; }
       ]) config.synit.daemons
     );
+
+    system.activationScripts.synitRunConfig = lib.stringAfter [ "specialfs" ] ''
+      install -v -m644 -d /run/etc/syndicate/{core,services}
+      install -m644 -t /run/etc/syndicate/services ${config.system.build.synitDaemons}
+    '';
+
+    systemd.enable = false;
   };
 
   meta = {
