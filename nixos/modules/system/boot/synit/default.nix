@@ -157,8 +157,7 @@ in
     ];
 
     environment.etc = {
-      "syndicate/boot".source = ./boot;
-      "syndicate/core".source = ./core;
+      "syndicate".source = ./etc;
     };
 
     environment.systemPackages = [ cfg.syndicate-server.package ];

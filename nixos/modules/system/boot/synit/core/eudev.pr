@@ -1,6 +1,0 @@
-<require-service <daemon eudev>>
-<daemon eudev ["/sbin/udevd", "--children-max=5"]>
-
-<require-service <daemon eudev-initial-scan>>
-<depends-on <daemon eudev-initial-scan> <service-state <daemon eudev> up>>
-<daemon eudev-initial-scan <one-shot "echo '' > /proc/sys/kernel/hotplug && udevadm trigger --type=subsystems --action=add && udevadm trigger --type=devices --action=add && udevadm settle --timeout=30">>
