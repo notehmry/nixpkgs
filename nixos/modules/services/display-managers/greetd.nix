@@ -8,6 +8,7 @@ let
   cfg = config.services.greetd;
   tty = "tty${toString cfg.vt}";
   settingsFormat = pkgs.formats.toml { };
+  configFile = settingsFormat.generate "greetd.toml" cfg.settings;
 in
 {
   options.services.greetd = {
@@ -84,44 +85,54 @@ in
     # Enable desktop session data
     services.displayManager.enable = lib.mkDefault true;
 
-    systemd.services.greetd = {
-      aliases = [ "display-manager.service" ];
-
-      unitConfig = {
-        Wants = [
-          "systemd-user-sessions.service"
+    system.services.greetd = {
+      process = {
+        executable = lib.getExe cfg.package;
+        args = [
+          "--config"
+          configFile
+          "--vt"
+          (toString cfg.vt)
         ];
-        After =
-          [
+      };
+
+      systemd.service = {
+        aliases = [ "display-manager.service" ];
+
+        unitConfig = {
+          Wants = [
             "systemd-user-sessions.service"
-            "getty@${tty}.service"
-          ]
-          ++ lib.optionals (!cfg.greeterManagesPlymouth) [
-            "plymouth-quit-wait.service"
           ];
-        Conflicts = [
-          "getty@${tty}.service"
-        ];
+          After =
+            [
+              "systemd-user-sessions.service"
+              "getty@${tty}.service"
+            ]
+            ++ lib.optionals (!cfg.greeterManagesPlymouth) [
+              "plymouth-quit-wait.service"
+            ];
+          Conflicts = [
+            "getty@${tty}.service"
+          ];
+        };
+
+        serviceConfig = {
+          Restart = lib.mkIf cfg.restart "on-success";
+
+          # Defaults from greetd upstream configuration
+          IgnoreSIGPIPE = false;
+          SendSIGHUP = true;
+          TimeoutStopSec = "30s";
+          KeyringMode = "shared";
+
+          Type = "idle";
+        };
+
+        # Don't kill a user session when using nixos-rebuild
+        restartIfChanged = false;
+
+        wantedBy = [ "graphical.target" ];
       };
-
-      serviceConfig = {
-        ExecStart = "${lib.getExe cfg.package} --config ${settingsFormat.generate "greetd.toml" cfg.settings}";
-
-        Restart = lib.mkIf cfg.restart "on-success";
-
-        # Defaults from greetd upstream configuration
-        IgnoreSIGPIPE = false;
-        SendSIGHUP = true;
-        TimeoutStopSec = "30s";
-        KeyringMode = "shared";
-
-        Type = "idle";
-      };
-
-      # Don't kill a user session when using nixos-rebuild
-      restartIfChanged = false;
-
-      wantedBy = [ "graphical.target" ];
     };
 
     systemd.defaultUnit = "graphical.target";
@@ -140,5 +151,8 @@ in
     users.groups.greeter = { };
   };
 
-  meta.maintainers = with lib.maintainers; [ queezle ];
+  meta.maintainers = with lib.maintainers; [
+    queezle
+    ehmry
+  ];
 }
