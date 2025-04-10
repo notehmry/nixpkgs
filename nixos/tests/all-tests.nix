@@ -265,7 +265,7 @@ in
   blocky = handleTest ./blocky.nix { };
   boot = handleTestOn [ "x86_64-linux" "aarch64-linux" ] ./boot.nix { };
   bootspec = handleTestOn [ "x86_64-linux" ] ./bootspec.nix { };
-  synit-stage1 = handleTest ./synit-stage1.nix { };
+  synit = runTest ./synit.nix;
   boot-stage1 = handleTest ./boot-stage1.nix { };
   boot-stage2 = handleTest ./boot-stage2.nix { };
   borgbackup = handleTest ./borgbackup.nix { };
