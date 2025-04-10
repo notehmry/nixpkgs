@@ -1,1 +1,0 @@
-<require-service <config-watcher "/run/etc/syndicate/core" $.>>

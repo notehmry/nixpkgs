@@ -7,7 +7,6 @@
 
 let
   inherit (lib) mkOption types;
-  strOrPath = with types; either str path;
   format = pkgs.formats.preserves {
     ignoreNulls = true;
     rawStrings = true;
@@ -39,7 +38,9 @@ let
 
 in
 {
-  options.synit = {
+  options.synit = let
+strOrPath = with types; either str path;
+  in {
     enable = lib.mkEnableOption "Synit system layer";
     syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
     pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
@@ -156,13 +157,11 @@ in
       }
     ];
 
-    environment.etc = {
-      "syndicate".source = ./etc;
-    };
-
     environment.systemPackages = [ cfg.syndicate-server.package ];
 
-    system.build.synitDaemons = writePreservesFile "daemons.pr" (
+    environment.etc = {
+      "syndicate/core/.keep".text = "";
+      "syndicate/services/daemons.pr".source = writePreservesFile "daemons.pr" (
       lib.mapAttrsToList (name: attrs: [
         name
         (
@@ -175,11 +174,7 @@ in
         { _record = "daemon"; }
       ]) config.synit.daemons
     );
-
-    system.activationScripts.synitRunConfig = lib.stringAfter [ "specialfs" ] ''
-      install -v -m644 -d /run/etc/syndicate/{core,services}
-      install -m644 -t /run/etc/syndicate/services ${config.system.build.synitDaemons}
-    '';
+};
 
     systemd.enable = false;
   };

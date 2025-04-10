@@ -17,11 +17,16 @@ let ?sys = <* $config [<or [
 # Load config in the `core` directory, using the wrapped `config` so that all plain services
 # required are changed to be *core* services.
 #
-<require-service <config-watcher "/run/booted-system/etc/syndicate/core" {
+let ?coreEnv = {
   config: $sys
   gatekeeper: $gatekeeper
   log: $log
-}>>
+}
+let ?coreDir = join "/" [ ".." scriptdir "core" ]
+! <exec "install -m644 -d /run/etc/syndicate/core">
+<require-service <config-watcher $coreDir $coreEnv>>
+<require-service <config-watcher "/etc/syndicate/core" $coreEnv>>
+<require-service <config-watcher "/run/etc/syndicate/core" $coreEnv.>>
 
 # In addition, require the `core` milestone explicitly.
 #

@@ -18,9 +18,12 @@ let ?basic = <* $config [<or [
 # directory.
 #
 ? <service-state <milestone core> up> [
-  <require-service <config-watcher "/etc/syndicate/services" {
+  let ?env = {
     config: $basic
     gatekeeper: $gatekeeper
     log: $log
-  }>>
+  }
+  ! <exec "install -m644 -d /run/etc/syndicate/services">
+  <require-service <config-watcher "/etc/syndicate/services" $env>>
+  <require-service <config-watcher "/run/etc/syndicate/services" $env>>
 ]
