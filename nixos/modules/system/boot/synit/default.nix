@@ -49,11 +49,11 @@ in
       pid1.args = lib.mkOption {
         type = types.listOf strOrPath;
         default = [
-          logWrapper
+          # logWrapper
           (lib.getExe cfg.syndicate-server.package)
           "--inferior"
           "--config"
-          "@systemConfig@/etc/syndicate/boot"
+          "${./config}/boot"
         ];
         defaultText = lib.literalMD ''The `syndicate-server` wrapped by `s6-log`.'';
       };
@@ -215,6 +215,11 @@ in
           { _record = "daemon"; }
         ]) config.synit.daemons
       );
+    };
+
+    system.activationScripts.synit-config = {
+      deps = [ "specialfs" ];
+      text = "install -m644 -d /run/etc/syndicate/{core,system,services}";
     };
 
     systemd.enable = false;

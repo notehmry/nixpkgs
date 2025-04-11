@@ -1,2 +1,0 @@
-<require-service <daemon hostname>>
-<daemon hostname <one-shot "hostname $(cat /etc/hostname)">>
