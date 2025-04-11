@@ -13,6 +13,7 @@ let
     types
     concatLists
     mapAttrsToList
+    mkIf
     ;
 
   portable-lib = import ../portable/lib.nix { inherit lib; };
@@ -65,7 +66,7 @@ in
   };
 
   # Second half of the magic: siphon units that were defined in isolation to the system
-  config = {
+  config = lib.mkIf config.systemd.enable {
 
     assertions = concatLists (
       mapAttrsToList (
@@ -79,6 +80,7 @@ in
       ) config.system.services
     );
 
+    # Create systemd units for those that were defined in isolation to the system.
     systemd.services = concatMapAttrs (
       serviceName: topLevelService: makeUnits "services" serviceName topLevelService
     ) config.system.services;
