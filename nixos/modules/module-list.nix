@@ -1809,6 +1809,7 @@
   ./system/boot/unl0kr.nix
   ./system/boot/uvesafb.nix
   ./system/etc/etc-activation.nix
+  ./system/service/synit/system.nix
   ./system/service/systemd/system.nix
   ./system/service/systemd/user.nix
   ./tasks/auto-upgrade.nix

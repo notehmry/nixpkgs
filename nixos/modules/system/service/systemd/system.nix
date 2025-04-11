@@ -52,6 +52,7 @@ in
           class = "service";
           modules = [
             ./service.nix
+            ../synit/service.nix
           ];
           specialArgs = {
             # perhaps: features."systemd" = { };
