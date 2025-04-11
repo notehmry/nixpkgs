@@ -96,6 +96,8 @@ in
         ];
       };
 
+      synit.daemon.restart = if cfg.restart then "always" else "never";
+
       systemd.service = {
         aliases = [ "display-manager.service" ];
 
