@@ -19,17 +19,12 @@
         vt = 1;
         settings = {
           default_session = {
-            command = "${pkgs.greetd.greetd}/bin/agreety";
+            command = "${pkgs.greetd}/bin/agreety";
           };
         };
       };
 
       synit.enable = true;
-
-      synit.pid1.args = [
-        (lib.getExe config.synit.syndicate-server.package)
-        "--inferior" "--config" "@systemConfig@/etc/syndicate/boot"
-      ];
 
       # virtualisation.graphics = false;
     };
