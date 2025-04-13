@@ -96,7 +96,8 @@ in
             --set INSTALL_BOOTLOADER ${lib.escapeShellArg config.system.build.installBootLoader} \
             --set PRE_SWITCH_CHECK ${lib.escapeShellArg config.system.preSwitchChecksScript} \
             --set LOCALE_ARCHIVE ${config.i18n.glibcLocales}/lib/locale/locale-archive \
-            --set SYSTEMD ${config.systemd.package}
+            ${lib.optionalString config.systemd.enable "--set SYSTEMD ${config.systemd.package}"}
+
         )
       '';
     })
