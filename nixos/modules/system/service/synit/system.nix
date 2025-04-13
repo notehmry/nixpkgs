@@ -8,6 +8,7 @@
 
 let
   inherit (lib)
+    attrNames
     types
     concatLists
     concatMapAttrs
@@ -61,8 +62,9 @@ in
   # Assert Synit services for those defined in isolation to the system.
   config = lib.mkIf config.synit.enable {
 
+    synit.requires = attrNames config.system.services;
+
     synit.services = mapAttrs (serviceName: topLevelService: {
-      label = serviceName;
       dependsOn = makeDaemonUpStates [ serviceName ] topLevelService;
     }) config.system.services;
 
