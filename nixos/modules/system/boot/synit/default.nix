@@ -45,6 +45,10 @@ let
 
 in
 {
+  imports = [
+    ./logging.nix
+  ];
+
   options.synit =
     let
       strOrPath = with types; either str path;
