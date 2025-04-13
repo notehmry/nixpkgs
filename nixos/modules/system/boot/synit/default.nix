@@ -23,7 +23,7 @@ let
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
 
-  logWrapper = pkgs.writeTextFile {
+  logWrapper' = pkgs.writeTextFile {
     name = "system-bus.el";
     executable = true;
     text = ''
@@ -39,6 +39,16 @@ let
         ${pkgs.s6}/bin/s6-log /var/log/synit
       }
       fdmove 2 $logw
+      $@
+    '';
+  };
+
+  logWrapper = pkgs.writeTextFile {
+    name = "system-bus.el";
+    executable = true;
+    text = ''
+      #!${lib.getExe pkgs.execline} -s0
+      redirfd -w 2 /dev/ttyS0
       $@
     '';
   };
@@ -61,7 +71,7 @@ in
         description = "Command line of the first process spawned by PID1";
         type = types.listOf strOrPath;
         default = [
-          # logWrapper
+          logWrapper
           (lib.getExe cfg.syndicate-server.package)
           "--inferior"
           "--config"
