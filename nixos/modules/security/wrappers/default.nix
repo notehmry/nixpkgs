@@ -2,13 +2,14 @@
   config,
   lib,
   pkgs,
+  utils,
   ...
 }:
 let
 
   inherit (config.security) wrapperDir;
 
-  wrappers = lib.filterAttrs (name: value: value.enable) config.security.wrappers;
+  wrappers = lib.filterAttrs (_: value: value.enable) config.security.wrappers;
 
   parentWrapperDir = dirOf wrapperDir;
 
@@ -51,7 +52,7 @@ let
     lib.types.strMatching mode // { description = "file mode string"; };
 
   wrapperType = lib.types.submodule (
-    { name, config, ... }:
+    { name, ... }:
     {
       options.enable = lib.mkOption {
         type = lib.types.bool;
@@ -344,6 +345,71 @@ in
         fi
       '';
     };
+
+    synit.core.daemons.suid-sgid-wrappers =
+      let
+        mkWrappedProgram =
+          {
+            program,
+            source,
+            owner,
+            group,
+            permissions,
+            capabilities,
+            setuid,
+            setgid,
+            ...
+          }:
+          # Set desired capabilities on the file plus cap_setpcap so
+          # the wrapper program can elevate the capabilities set on
+          # its file into the Ambient set.
+          ''
+            background {
+              define dest ''${binDir}/${program}
+              if { s6-hiercopy ${securityWrapper source}/bin/security-wrapper $dest }
+              if { chmod 0000 $dest }
+              if { chown ${owner}:${group} $dest }
+              ${lib.optionalString (
+                capabilities != ""
+              ) ''if { ${pkgs.libcap.out}/bin/setcap "cap_setpcap,${capabilities}" $dest }''}
+              chmod u${if setuid then "+" else "-"}s,g${if setgid then "+" else "-"}s,${permissions} $dest
+            }
+          '';
+        script =
+          utils.writeExeclineScript "make-suid-sgid-wrappers.el" "-P"
+            # Use s6-ln because it does atomic symlink replacement.
+            ''
+              if {
+                if -n { grep -q ${parentWrapperDir} /proc/mounts }
+                foreground { s6-mkdir -p -m 755 ${parentWrapperDir} }
+                s6-mount -t tmpfs -o ${
+                  lib.concatStringsSep "," [
+                    "nodev"
+                    "mode=755"
+                    "size=${config.security.wrapperDirSize}"
+                  ]
+                } tmpfs ${parentWrapperDir}
+              }
+              getpid -E nonce
+              define binDir ${parentWrapperDir}/wrappers.$nonce
+              if { s6-mkdir -p -m 755 $binDir }
+              ${lib.concatMapStrings mkWrappedProgram (lib.attrValues wrappers)}
+              if { wait { } }
+              s6-ln -sf $binDir ${wrapperDir}
+            '';
+      in
+      {
+        argv = [
+          script
+        ];
+        path = [
+          pkgs.s6-linux-utils
+          pkgs.s6-portable-utils
+          pkgs.gnugrep
+          pkgs.coreutils
+        ];
+        restart = "on-error";
+      };
 
     ###### wrappers consistency checks
     system.checks = lib.singleton (
