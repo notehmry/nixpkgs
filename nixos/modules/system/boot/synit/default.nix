@@ -190,6 +190,7 @@ in
 {
   imports = [
     ./logging.nix
+    ./mdevd.nix
   ];
 
   options.synit = {
