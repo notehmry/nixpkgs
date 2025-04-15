@@ -8,6 +8,7 @@
 let
   inherit (lib)
     mkIf
+    concatStrings
     concatStringsSep
     mapAttrsToList
     optionalString
@@ -143,6 +144,8 @@ let
             ) config.boot.initrd.secrets
           )
         )}
+
+        ${config.boot.initrd.extraUtilsCommands}
 
         # Copy ld manually since it isn't detected correctly
         cp -pv ${pkgs.stdenv.cc.libc.out}/lib/ld*.so.? $out/lib
@@ -303,8 +306,26 @@ let
         ''
       ) (fileSystemsList config.boot.specialFileSystems);
 
+      setHostId = optionalString (config.networking.hostId != null) (
+        with builtins;
+        let
+          f =
+            if pkgs.stdenv.hostPlatform.isBigEndian then
+              i: "\\\\x${substring i * 2 2 config.networking.hostId}"
+            else
+              i: "\\\\x${substring (6 - i * 2) 2 config.networking.hostId}";
+        in
+        ''
+          background {
+            redirfd -w 1 /etc/hostid
+            printf ${concatStrings (genList f 4)}
+          }
+        ''
+      );
+
+      postResumeCommands = callAshScript "post-resume.ash" config.boot.initrd.postResumeCommands;
+
       normalMounts = callAshScript "mount.ash" ''
-        echo "start mount script"
         # Create the mount point if required.
         makeMountPoint() {
             local device="$1"

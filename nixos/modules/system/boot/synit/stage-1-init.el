@@ -17,6 +17,8 @@ if {
   exit
 }
 
+@setHostId@
+
 if {
   redirfd -w 1 /proc/sys/kernel/modprobe
   s6-echo @extraUtils@/bin/modprobe
@@ -31,7 +33,6 @@ importas -iu mdevd_pid !
 # Coldplug twice so that all modules are loaded.
 foreground { mdevd-coldplug -v 3 -O 2 }
 foreground { mdevd-coldplug -v 3 -O 2 }
-background { kill $mdevd_pid }
 
 # Create symlinks in /dev/disk.
 if { s6-mkdir -p /dev/disk/by-label /dev/disk/by-uuid }
@@ -41,6 +42,8 @@ if { forbacktickx -pE val { blkid --match-tag LABEL --output value }
 if { forbacktickx -pE val { blkid --match-tag UUID --output value }
   backtick -E dev { blkid --uuid $val } ln -s $dev /dev/disk/by-uuid/$val
 }
+
+@postResumeCommands@
 
 foreground { s6-echo starting normal mount script }
 @normalMounts@
@@ -52,6 +55,7 @@ if {
 
 # Wait for children to exit.
 background { s6-echo "waiting for children to exit" }
+background { kill $mdevd_pid }
 wait { }
 
 # Wipe the current root and exec in /mnt-root.
