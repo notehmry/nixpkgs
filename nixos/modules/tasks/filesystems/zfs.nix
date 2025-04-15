@@ -100,7 +100,7 @@ let
       done
       poolReady() {
         pool="$1"
-        state="$("${zpoolCmd}" import -d "${devNodes}" 2>/dev/null | "${awkCmd}" "/pool: $pool/ { found = 1 }; /state:/ { if (found == 1) { print \$2; exit } }; END { if (found == 0) { print \"MISSING\" } }")"
+        state="$("${zpoolCmd}" import ${lib.optionalString config.systemd.enable ''-d "${devNodes}"''} 2>/dev/null | "${awkCmd}" "/pool: $pool/ { found = 1 }; /state:/ { if (found == 1) { print \$2; exit } }; END { if (found == 0) { print \"MISSING\" } }")"
         if [[ "$state" = "ONLINE" ]]; then
           return 0
         else
@@ -354,6 +354,9 @@ in
 
           For guidance on choosing this value, see
           [the ZFS documentation](https://openzfs.github.io/openzfs-docs/Project%20and%20Community/FAQ.html#selecting-dev-names-when-creating-a-pool-linux).
+
+          This option is ignored on hosts not reliant on systemd & udev.
+          Devices will be searched using libblkid instead.
         '';
       };
 
