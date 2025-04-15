@@ -225,6 +225,12 @@ in
     environment.systemPackages = [ pkgs.xorg.xwininfo ];
 
     # Log everything to the serial console.
+    synit.pid2.logger = [
+      (lib.getExe' pkgs.execline "redirfd")
+      "-w"
+      "2"
+      "/dev/${qemu-common.qemuSerialDevice}"
+    ];
     services.journald.extraConfig = ''
       ForwardToConsole=yes
       TTYPath=/dev/${qemu-common.qemuSerialDevice}
