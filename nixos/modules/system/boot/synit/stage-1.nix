@@ -226,39 +226,9 @@ let
     ];
 
   failScript = writeAshScript "fail.ash" ''
-    # If starting stage 2 failed, allow the user to repair the problem
-    # in an interactive shell.
-    cat <<EOF
-
-    An error occurred in stage 1 of the boot process, which must mount the
-    root filesystem on \`$targetRoot' and then start stage 2.  Press one
-    of the following keys:
-
-    EOF
-        if [ -n "$allowShell" ]; then cat <<EOF
-      i) to launch an interactive shell
-      f) to start an interactive shell having pid 1 (needed if you want to
-         start stage 2's init manually)
-    EOF
-        fi
-        cat <<EOF
-      r) to reboot immediately
-      *) to ignore the error and continue
-    EOF
-
-    read -n 1 reply
-
-    if [ -n "$allowShell" -a "$reply" = f ]; then
-        exec setsid $SHELL -c "exec $SHELL < /dev/console >/dev/console 2>/dev/console"
-    elif [ -n "$allowShell" -a "$reply" = i ]; then
-        echo "Starting interactive shell..."
-        setsid $SHELL -c "exec $SHELL < /dev/console >/dev/console 2>/dev/console" || fail
-    elif [ "$reply" = r ]; then
-        echo "Rebooting..."
-        reboot -f
-    else
-        echo "Continuing..."
-    fi
+    ${config.boot.initrd.preFailCommands}
+    echo "Starting interactive shell..."
+    setsid $SHELL -c "exec $SHELL < /dev/console >/dev/console 2>/dev/console"
   '';
 
   mountOptionArgs =
@@ -277,7 +247,8 @@ let
     replacements = {
       inherit (config.system.nixos) distroName;
       inherit (config.boot.initrd) kernelModules;
-      inherit extraUtils;
+      inherit extraUtils failScript;
+      shell = "${extraUtils}/bin/ash";
 
       execlineb = lib.getExe pkgs.execline;
       mdevdConf = pkgs.writeText "initramfs-mdevd.conf" ''

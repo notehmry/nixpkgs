@@ -2,6 +2,7 @@
 export PATH @initramfsPath@
 export LD_LIBRARY_PATH @extraUtils@/lib
 background { s6-echo "\n[1;32m<[1;97m<[1;90m<[1;31m<[1;97m @distroName@ Stage 1 [1;31m>[1;90m>[1;97m>[1;32m>[0m\n" }
+export SHELL @shell@
 
 @specialMounts@
 
@@ -12,6 +13,9 @@ if {
     init=(.*) {
       importas init 1
       s6-ln -s "${init}" /run/init
+    }
+    boot.debug1 { # stop right away
+      @failScript@
     }
   }
   exit
@@ -43,10 +47,32 @@ if { forbacktickx -pE val { blkid --match-tag UUID --output value }
   backtick -E dev { blkid --uuid $val } ln -s $dev /dev/disk/by-uuid/$val
 }
 
+# Stop after loading modules and creating device nodes.
+if {
+  redirfd -r 0 /proc/cmdline
+  forstdin -E -d " " arg case -N $arg {
+    boot.debug1devices {
+      @failScript@
+    }
+  }
+  exit
+}
+
 @postResumeCommands@
 
 foreground { s6-echo starting normal mount script }
 @normalMounts@
+
+# stop after mounting file systems
+if {
+  redirfd -r 0 /proc/cmdline
+  forstdin -E -d " " arg case -N $arg {
+    boot.debug1mounts {
+      @failScript@
+    }
+  }
+  exit
+}
 
 if {
   forx -pE dir { proc dev sys run }
