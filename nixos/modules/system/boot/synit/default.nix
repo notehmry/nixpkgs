@@ -29,7 +29,7 @@ let
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
 
-  logWrapper' = pkgs.writeTextFile {
+  logWrapper = pkgs.writeTextFile {
     name = "system-bus.el";
     executable = true;
     text = ''
@@ -45,16 +45,6 @@ let
         ${pkgs.s6}/bin/s6-log /var/log/synit
       }
       fdmove 2 $logw
-      $@
-    '';
-  };
-
-  logWrapper = pkgs.writeTextFile {
-    name = "system-bus.el";
-    executable = true;
-    text = ''
-      #!${lib.getExe pkgs.execline} -s0
-      redirfd -w 2 /dev/ttyS0
       $@
     '';
   };
@@ -123,7 +113,7 @@ let
               package
             ]);
           default = [ pkgs.coreutils ];
-          defaultText = lib.literalMd "{option}`config.security.wrapperDir` and GNU coreutils";
+          defaultText = lib.literalMD "{option}`config.security.wrapperDir` and GNU coreutils";
           description = ''
             List of directories to compose into the PATH environmental variable.
           '';
@@ -206,17 +196,14 @@ in
     enable = lib.mkEnableOption "Synit system layer";
     syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
     pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
-    pid1.args = lib.mkOption {
-      description = "Command line of the first process spawned by PID1";
-      type = types.listOf strOrPath;
-      default = [
-        logWrapper
-        (lib.getExe cfg.syndicate-server.package)
-        "--inferior"
-        "--config"
-        "${./config}/boot"
-      ];
-      defaultText = lib.literalMD ''The `syndicate-server` wrapped by `s6-log`.'';
+    pid2.logger = lib.mkOption {
+      description = ''
+        Wapper that captures stderr of PID2 for logging.
+        An emptly list disables logging.
+      '';
+      type = with types; listOf strOrPath;
+      default = [ logWrapper ];
+      defaultText = lib.literalMD "`s6-log` logging to `/var/log/synit`";
     };
 
     core = {
