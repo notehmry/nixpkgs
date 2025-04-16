@@ -6,7 +6,11 @@
 }:
 let
 
-  dhcpcd = if !config.boot.isContainer then pkgs.dhcpcd else pkgs.dhcpcd.override { udev = null; };
+  dhcpcd =
+    if (config.boot.isContainer || config.synit.enable) then
+      pkgs.dhcpcd.override { udev = null; }
+    else
+      pkgs.dhcpcd;
 
   cfg = config.networking.dhcpcd;
 
@@ -385,6 +389,15 @@ in
           UMask = "0027";
         };
       };
+
+    synit.daemons.dhcpcd = {
+      argv = [
+        (lib.getExe dhcpcd)
+        "--nobackground"
+        "--config"
+        dhcpcdConf
+      ] ++ lib.optionalcfg.persistent "--persistent";
+    };
 
     # Note: the service could run with `DynamicUser`, however that makes
     # impossible (for no good reason, see systemd issue #20495) to disable
