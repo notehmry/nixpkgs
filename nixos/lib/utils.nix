@@ -413,6 +413,12 @@ let
           ${script}
         '';
         executable = true;
+        checkPhase = ''
+          echo true >test.el
+          cat $target >>test.el
+          echo "checking execline syntax of $target"
+          ${lib.getExe pkgs.buildPackages.execline} -W test.el
+        '';
       };
 
     systemdUtils = {
