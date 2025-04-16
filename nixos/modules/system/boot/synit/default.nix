@@ -2,6 +2,7 @@
   lib,
   config,
   pkgs,
+  utils,
   ...
 }:
 
@@ -29,25 +30,21 @@ let
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
 
-  logWrapper = pkgs.writeTextFile {
-    name = "system-bus.el";
-    executable = true;
-    text = ''
-      #!${lib.getExe pkgs.execline} -s0
-      fdreserve 2
-      multisubstitute {
-        importas logr FD0
-        importas logw FD1
-      }
-      piperw $logr $logw
-      background {
-        fdmove 0 $logr
-        ${pkgs.s6}/bin/s6-log /var/log/synit
-      }
-      fdmove 2 $logw
-      $@
-    '';
-  };
+  logWrapper = utils.writeExeclineScript "system-bus.el" "-s" ''
+    #!${lib.getExe pkgs.execline} -s0
+    fdreserve 2
+    multisubstitute {
+      importas logr FD0
+      importas logw FD1
+    }
+    piperw $logr $logw
+    background {
+      fdmove 0 $logr
+      ${pkgs.s6}/bin/s6-log /var/log/synit
+    }
+    fdmove 2 $logw
+    $@
+  '';
 
   daemonSubmodule = types.submodule (
     { name, ... }:
