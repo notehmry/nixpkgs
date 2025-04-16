@@ -395,6 +395,26 @@ let
       in
       !elem (getName package) namesToDisable;
 
+    writeExeclineScript =
+      let
+        execlineb = lib.getExe pkgs.execline;
+      in
+      name: args: script:
+      pkgs.writeTextFile {
+        inherit name;
+        text = ''
+          #!${
+            toString [
+              execlineb
+              args
+            ]
+          }
+
+          ${script}
+        '';
+        executable = true;
+      };
+
     systemdUtils = {
       lib = import ./systemd-lib.nix {
         inherit
