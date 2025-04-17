@@ -390,13 +390,16 @@ in
         };
       };
 
+    networking.dhcpcd.runHook = lib.mkIf config.synit.enable (builtins.readFile ./synit-dhcpcd-hook.sh);
+
     synit.daemons.dhcpcd = {
       argv = [
         (lib.getExe dhcpcd)
         "--nobackground"
         "--config"
         dhcpcdConf
-      ] ++ lib.optionalcfg.persistent "--persistent";
+      ] ++ lib.optional cfg.persistent "--persistent";
+      isRequired = true;
     };
 
     # Note: the service could run with `DynamicUser`, however that makes
