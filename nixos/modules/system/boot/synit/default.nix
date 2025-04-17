@@ -59,6 +59,13 @@ let
             to be built that match multiple daemons by prefix. *TODO: is this correct?*
           '';
         };
+        isRequired = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            Whether this daemon is an explicitly required service.
+          '';
+        };
         argv = mkOption {
           description = ''
             Daemon command line.
@@ -315,6 +322,27 @@ in
           );
         }
       ) cfg.services)
+      (
+        with builtins;
+        listToAttrs (map (
+          name:
+          let
+            daemon = cfg.daemons.${name};
+          in
+          {
+            name = "syndicate/services/require-${name}.pr";
+            value.source = writePreservesFile "require-${name}.pr" [
+              [
+                [
+                  daemon.label
+                  { _record = "daemon"; }
+                ]
+                { _record = "require-service"; }
+              ]
+            ];
+          }
+        ) (filter (name: cfg.daemons.${name}.isRequired) (attrNames cfg.daemons)))
+      )
     ];
 
     system.activationScripts.synit-config = {
