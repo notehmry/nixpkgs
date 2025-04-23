@@ -23,6 +23,8 @@ if {
 
 @setHostId@
 
+@preDeviceCommands@
+
 if {
   redirfd -w 1 /proc/sys/kernel/modprobe
   s6-echo @extraUtils@/bin/modprobe
@@ -31,21 +33,15 @@ if {
 background { s6-echo Loading modules @kernelModules@ }
 if { modprobe -a @kernelModules@ }
 
-# Autoload modules.
+# Start mdevd to load modules and create disk symlinks.
+if { s6-mkdir -p /dev/disk/by-label /dev/disk/by-uuid /dev/disk/by-id }
 background { mdevd -v 3 -O 2 -f @mdevdConf@ }
 importas -iu mdevd_pid !
-# Coldplug twice so that all modules are loaded.
+# Do a blocking coldplug and wait.
 foreground { mdevd-coldplug -v 3 -O 2 }
-foreground { mdevd-coldplug -v 3 -O 2 }
+foreground { sleep 1 }
 
-# Create symlinks in /dev/disk.
-if { s6-mkdir -p /dev/disk/by-label /dev/disk/by-uuid }
-if { forbacktickx -pE val { blkid --match-tag LABEL --output value }
-  backtick -E dev { blkid --label $val } ln -s $dev /dev/disk/by-label/$val
-}
-if { forbacktickx -pE val { blkid --match-tag UUID --output value }
-  backtick -E dev { blkid --uuid $val } ln -s $dev /dev/disk/by-uuid/$val
-}
+@postDeviceCommands@
 
 # Stop after loading modules and creating device nodes.
 if {

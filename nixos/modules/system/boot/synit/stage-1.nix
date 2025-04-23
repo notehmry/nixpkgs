@@ -236,6 +236,54 @@ let
     lib.optionalString (options != [ ])
       "-o ${lib.concatStringsSep "," (lib.filter (s: !lib.hasPrefix "x-" s) options)}";
 
+  blockHandler = utils.writeExeclineScript "mdevd-block.el" "" ''
+    importas -S ACTION
+    importas -S MDEV
+    case $ACTION
+    {
+      add {
+        foreground {
+          # Udev compatibility hack.
+          s6-ln -s ../../$MDEV /dev/disk/by-id/$MDEV
+        }
+        forbacktickx -pE LINE { blkid --output export /dev/$MDEV }
+        case -N $LINE {
+          ^LABEL=(.*) {
+            importas LABEL 1
+            s6-ln -sf ../../$MDEV /dev/disk/by-label/$LABEL
+          }
+          ^UUID=(.*) {
+            importas UUID 1
+            s6-ln -sf ../../$MDEV /dev/disk/by-uuid/$UUID
+          }
+        }
+      }
+      remove {
+        foreground { s6-rmrf/dev/disk/by-id/$MDEV }
+        forbacktickx -pE LINE { blkid --output export /dev/$MDEV }
+        case -N $LINE {
+          ^LABEL=(.*) {
+            importas LABEL 1
+            s6-rmrf /dev/disk/by-label/$LABEL
+          }
+          ^UUID=(.*) {
+            importas UUID 1
+            s6-rmrf /dev/disk/by-uuid/$UUID
+          }
+        }
+      }
+    }
+  '';
+
+  mdevdConf =
+    let
+      gidOf = name: toString config.ids.gids.${name};
+    in
+    pkgs.writeText "initramfs-mdevd.conf" ''
+      $MODALIAS=.* 0:0 660 +importas m MODALIAS modprobe --quiet $m
+      SUBSYSTEM=block;.* 0:${gidOf "disk"} 660 &${blockHandler}
+    '';
+
   bootStage1 = pkgs.replaceVarsWith {
     src = ./stage-1-init.el;
     isExecutable = true;
@@ -246,16 +294,18 @@ let
       cat $target >>check.el
       execlineb -W check.el || [ $? -ne 100 ]
     '';
-    replacements = {
+    replacements =       let
+        cfg = config.boot.initrd;
+      in {
       inherit (config.system.nixos) distroName;
       inherit (config.boot.initrd) kernelModules;
-      inherit extraUtils failScript;
+      inherit extraUtils failScript mdevdConf;
       shell = "${extraUtils}/bin/ash";
 
       execlineb = lib.getExe pkgs.execline;
-      mdevdConf = pkgs.writeText "initramfs-mdevd.conf" ''
-        $MODALIAS=.* 0:0 660 +importas m MODALIAS modprobe --quiet $m
-      '';
+
+        preDeviceCommands = callAshScript "pre-device.ash" cfg.preDeviceCommands;
+        postDeviceCommands = callAshScript "post-device.ash" cfg.postDeviceCommands;
 
       initramfsPath = lib.makeBinPath [
         pkgs.execline
