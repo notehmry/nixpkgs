@@ -51,7 +51,8 @@ in
 
       systemd-ssh-proxy.enable = lib.mkOption {
         type = lib.types.bool;
-        default = true;
+        default = config.systemd.enable;
+        defaultText = lib.literalExpression "config.systemd.enable";
         description = ''
           Whether to enable systemd's ssh proxy plugin.
           See {manpage}`systemd-ssh-proxy(1)`.
