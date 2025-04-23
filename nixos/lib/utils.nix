@@ -414,10 +414,10 @@ let
         '';
         executable = true;
         checkPhase = ''
-          echo true >test.el
+          echo checking execline syntax of $target
+          echo echo >test.el
           cat $target >>test.el
-          echo "checking execline syntax of $target"
-          ${lib.getExe pkgs.buildPackages.execline} -W test.el
+          ${lib.getExe pkgs.buildPackages.execline} -W test.el || [ $? -ne 100 ]
         '';
       };
 

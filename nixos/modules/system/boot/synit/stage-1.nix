@@ -241,8 +241,10 @@ let
     isExecutable = true;
     nativeBuildInputs = [ pkgs.execline ];
     postInstall = ''
-      echo checking execline syntax
-      execlineb -W $target || [ $? -ne 100 ]
+      echo checking execline syntax of $target
+      echo echo >check.el
+      cat $target >>check.el
+      execlineb -W check.el || [ $? -ne 100 ]
     '';
     replacements = {
       inherit (config.system.nixos) distroName;
