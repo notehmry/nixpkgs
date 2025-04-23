@@ -6,36 +6,23 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "synit-pid1";
-  version = "0.0.4";
+  version = "0.0.5";
 
   src = fetchFromGitea {
     domain = "git.syndicate-lang.org";
-    owner = "synit";
-    repo = "synit";
-    rev = "51119bf1a5817360c6815cdc848f6b787f8f66e5";
-    hash = "sha256-Y7T2nOOjAhFMooAwvyfY6+Pcnrw9gC+pwRot+2NQ8FI=";
+    owner = "ehmry";
+    repo = "synit-pid1";
+    rev = "4c97408f5867cff77161b48aceff8b06e087aa7d";
+    hash = "sha256-Rj4cST2U9xhV0syMAR+j+rxWqqPLIDQeRvXsp9WaImA=";
   };
-  cargoHash = "sha256-BmeNqUkzQb3kRqV7xasq+J3prFeeulM8hLJoRNC/7Pk=";
+
+  cargoHash = "sha256-1rvQxvVqvZ8iDq4i52E38LXCoIvNF+o6NhqEmsn+dlQ=";
   useFetchCargoVendor = true;
-
-  patchPhase =
-    # Patch to take children and configuration from /run/booted-system.
-    ''
-      runHook prePatch
-      substituteInPlace src/main.rs \
-        --replace '"/usr/bin/syndicate-server"' '"/run/booted-system/sw/bin/syndicate-server"' \
-        --replace '"/sbin/synit-log"' '"/run/booted-system/sw/bin/synit-log"' \
-        --replace '"/etc/syndicate/boot"' '"/run/booted-system/etc/syndicate/boot"' \
-
-      runHook postPatch
-    '';
-
-  sourceRoot = "source/${pname}";
 
   RUSTC_BOOTSTRAP = true;
 
   meta = {
-    description = "Synit pid 1 program (patched for NixOS)";
+    description = "Synit PID1 program";
     homepage = "https://synit.org/";
     license = lib.licenses.asl20;
     mainProgram = "synit-pid1";
