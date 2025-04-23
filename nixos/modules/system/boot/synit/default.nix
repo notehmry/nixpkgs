@@ -11,8 +11,6 @@ let
     makeBinPath
     mapAttrs
     mapAttrs'
-    mapAttrsToList
-    mkAfter
     mkMerge
     mkOption
     getExe
@@ -173,7 +171,7 @@ let
         let
           env' = lib.optionalAttrs (attrs.env != null) attrs.env;
         in
-        mapAttrs (k: v: if v == null then false else builtins.toJSON v) (
+        mapAttrs (_: v: if v == null then false else builtins.toJSON v) (
           (lib.optionalAttrs (!attrs.clearEnv) config.systemd.globalEnvironment)
           // env'
           // {
@@ -195,6 +193,7 @@ in
   imports = [
     ./logging.nix
     ./mdevd.nix
+    ./networking.nix
   ];
 
   options.synit = {
