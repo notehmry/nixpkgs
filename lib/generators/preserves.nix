@@ -16,7 +16,6 @@
 {
   ignoreNulls ? true,
   rawStrings ? false,
-  # TODO: could accept an attrset of overrides for "convert" below.
 }:
 let
   toPreserves =
@@ -37,6 +36,9 @@ let
             end = elemAt list (len - 1);
           in
           if (lib.isAttrs end) && (attrNames end) == [ "_record" ] then end._record else null;
+      dictTuple = key: val: "${key}: ${toPreserves val}";
+      attrToDict =
+        if !ignoreNulls then dictTuple else key: val: if val != null then dictTuple key val else "";
       convert = {
         int = toString;
         bool = v: if v then "#t" else "#f";
@@ -44,15 +46,13 @@ let
         path = v: toPreserves (toString v);
         null = _: "<null>";
         set =
-          let
-            tuple = key: val: "${key}: ${toPreserves val}";
-            f = if !ignoreNulls then tuple else key: val: if val != null then tuple key val else "";
-          in
           v:
-          if (isDerivation v) then
+          if v ? __toPreserves then
+            v.__toPreserves (builtins.removeAttrs v [ "__toPreserves" ])
+          else if (isDerivation v) then
             (builtins.toJSON v)
           else
-            "{ ${concatItems (lib.attrsets.mapAttrsToList f v)} }";
+            "{ ${concatItems (lib.attrsets.mapAttrsToList attrToDict v)} }";
         list =
           v:
           let
