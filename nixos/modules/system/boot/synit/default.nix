@@ -323,24 +323,26 @@ in
       ) cfg.services)
       (
         with builtins;
-        listToAttrs (map (
-          name:
-          let
-            daemon = cfg.daemons.${name};
-          in
-          {
-            name = "syndicate/services/require-${name}.pr";
-            value.source = writePreservesFile "require-${name}.pr" [
-              [
+        listToAttrs (
+          map (
+            name:
+            let
+              daemon = cfg.daemons.${name};
+            in
+            {
+              name = "syndicate/services/require-${name}.pr";
+              value.source = writePreservesFile "require-${name}.pr" [
                 [
-                  daemon.label
-                  { _record = "daemon"; }
+                  [
+                    daemon.label
+                    { _record = "daemon"; }
+                  ]
+                  { _record = "require-service"; }
                 ]
-                { _record = "require-service"; }
-              ]
-            ];
-          }
-        ) (filter (name: cfg.daemons.${name}.isRequired) (attrNames cfg.daemons)))
+              ];
+            }
+          ) (filter (name: cfg.daemons.${name}.isRequired) (attrNames cfg.daemons))
+        )
       )
     ];
 
