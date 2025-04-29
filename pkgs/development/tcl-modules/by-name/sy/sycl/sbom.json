@@ -26,8 +26,8 @@
           "value": "nim"
         },
         {
-          "name": "nim:bin:libpreserves.so",
-          "value": "preserves"
+          "name": "nim:bin:libdataspaces.so",
+          "value": "dataspaces"
         },
         {
           "name": "nim:srcDir",
@@ -184,6 +184,65 @@
         {
           "name": "nix:fod:srcDir",
           "value": "src"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nim/syndicate",
+      "name": "syndicate",
+      "description": "Syndicated actors for conversational concurrency",
+      "version": "20250314",
+      "authors": [
+        {
+          "name": "Emery Hemingway"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Unlicense"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "nix:fod:method",
+          "value": "fetchzip"
+        },
+        {
+          "name": "nix:fod:path",
+          "value": "/nix/store/ss1mplngxqmmkj4xma70cs3vhfhblwv0-source"
+        },
+        {
+          "name": "nix:fod:rev",
+          "value": "f887ea31d7bc906d0ef883a0c07954ba46f64b6d"
+        },
+        {
+          "name": "nix:fod:sha256",
+          "value": "1vr81h2m23zq51s6iy2rj74f21ajc4q3qq84ksnfi0qbxlnf3d3z"
+        },
+        {
+          "name": "nix:fod:url",
+          "value": "https://git.syndicate-lang.org/ehmry/syndicate-nim/archive/f887ea31d7bc906d0ef883a0c07954ba46f64b6d.tar.gz"
+        },
+        {
+          "name": "nix:fod:ref",
+          "value": "20250314"
+        },
+        {
+          "name": "nix:fod:srcDir",
+          "value": "src"
+        }
+      ],
+      "externalReferences": [
+        {
+          "url": "https://git.syndicate-lang.org/ehmry/syndicate-nim/archive/f887ea31d7bc906d0ef883a0c07954ba46f64b6d.tar.gz",
+          "type": "source-distribution"
+        },
+        {
+          "url": "https://git.syndicate-lang.org/ehmry/syndicate-nim",
+          "type": "vcs"
         }
       ]
     }

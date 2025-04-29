@@ -5,15 +5,15 @@
   tcl,
 }:
 
-buildNimSbom (_: {
+buildNimSbom {
   pname = "sycl";
 
   src = fetchFromGitea {
     domain = "git.syndicate-lang.org";
     owner = "ehmry";
     repo = "sycl";
-    rev = "3ed22e4a6e51b59b81408e9f8b1eed6805f574b3";
-    hash = "sha256-Qxvlv92STff1k2s1JfGhDIHh9KNyjf8kb3iL0zljW5M=";
+    rev = "fb289108cdcdcf2b1dbdeddc36f266a53364c9f3";
+    hash = "sha256-L9+EUsDiH7faGqp2TvHKe2MlOTlyK8fFnVntzP/PkeI=";
   };
 
   nativeBuildInputs = [
@@ -25,7 +25,7 @@ buildNimSbom (_: {
 
   installPhase = ''
     runHook preInstall
-    install -D -t $out/lib/$name src/*.tcl libpreserves.so
+    install -D -t $out/lib/$name src/*.tcl libdataspaces.so
     install -D -t $out/share/man/mann *.n.gz
     runHook postInstall
   '';
@@ -36,4 +36,4 @@ buildNimSbom (_: {
     license = lib.licenses.unlicense;
     maintainers = with lib.maintainers; [ ehmry ];
   };
-}) ./sbom.json
+} ./sbom.json
