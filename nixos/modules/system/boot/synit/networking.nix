@@ -68,5 +68,17 @@ in
 {
   config = lib.mkIf config.synit.enable {
     environment.etc = mapAttrs' mkInterfaceFile cfg.interfaces;
+    synit.core.daemons.static-network =
+      let
+        inherit (pkgs.tclPackages) tcl sycl;
+      in
+      {
+        argv = [
+          (lib.getExe' tcl "tclsh")
+          ./networking.tcl
+        ];
+        env.TCLLIBPATH = "${sycl}/lib/${sycl.name}";
+        protocol = "text/syndicate";
+      };
   };
 }

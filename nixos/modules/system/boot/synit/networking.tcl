@@ -8,7 +8,9 @@ proc forattr {name attrs body} {
 }
 
 syndicate::spawn actor {
-  connect [syndicate::environmentRoute] server {
+  set networkEntity [createAssertHandler {value handle} {
+    preserves::project $value {^ network . 0} networkDataspace
+    if {$networkDataspace == ""} return
 
     during {<addr @ifname #? #_ @address #? @prefixLength #?>} {
       # Modify interface addresses.
@@ -23,7 +25,7 @@ syndicate::spawn actor {
       set cmdDel [lreplace $cmdAdd 3 3 delete]
       onStop [list catch $cmdDel]
 
-    } $server
+    } $networkDataspace
 
     during {<route @ifname #? #_ @address #? @prefixLength #? @attrs #({ })>} {
       # Modify routing table.
@@ -50,9 +52,11 @@ syndicate::spawn actor {
       set cmdDel [lreplace $cmdAdd 3 3 delete]
       onStop [list catch $cmdDel]
 
-    } $server
+    } $networkDataspace
 
-  }
+  }]
+
+  connectStdio $networkEntity
 
   # Flag that the actor died.
   onStop {set done 1}
