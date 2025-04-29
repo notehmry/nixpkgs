@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  utils,
   ...
 }:
 let
@@ -394,6 +395,11 @@ in
 
     synit.daemons.dhcpcd = {
       argv = [
+        (lib.getExe' pkgs.execline "foreground")
+        " mkdir"
+        " -p"
+        " /var/run/dhcpcd"
+        ""
         (lib.getExe dhcpcd)
         "--nobackground"
         "--config"
