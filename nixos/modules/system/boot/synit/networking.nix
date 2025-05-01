@@ -10,6 +10,7 @@ let
     mapAttrs'
     optionalAttrs
     ;
+  inherit (builtins) toJSON;
 
   preserves = pkgs.formats.preserves {
     ignoreNulls = true;
@@ -26,10 +27,10 @@ let
     in
     attrs: attrs // { inherit __toPreserves; };
 
-  assertRecord = label: face: family: attrs: [
+  assertRecord = label: face: family: cfg: [
     face
     family
-    (quoteStrings attrs)
+    (quoteStrings cfg)
     { _record = label; }
   ];
 
@@ -58,8 +59,8 @@ let
           { _record = "interface"; }
         ]
       ]
-      ++ map (assertRecord "addr" cfg.name "ipv4") cfg.ipv4.addresses
-      ++ map (assertRecord "addr" cfg.name "ipv6") cfg.ipv6.addresses
+      ++ map (assertRecord "address" cfg.name "ipv4") cfg.ipv4.addresses
+      ++ map (assertRecord "address" cfg.name "ipv6") cfg.ipv6.addresses
       ++ map (assertRecord "route" cfg.name "ipv4") cfg.ipv4.routes
       ++ map (assertRecord "route" cfg.name "ipv6") cfg.ipv6.routes
     );
@@ -67,8 +68,37 @@ let
 in
 {
   config = lib.mkIf config.synit.enable {
-    environment.etc = mapAttrs' mkInterfaceFile cfg.interfaces;
-    synit.core.daemons.static-network =
+    environment.etc = lib.mkMerge [
+      {
+        "syndicate/core/network-config.pr".text = ''
+          # Dataspace of intended configuration.
+          let ?network = dataspace
+          $network ? ?x [
+            $log ! <log "-" { line: "network" |+++|: $x }>
+            ?- $log ! <log "-" { line: "network" |---|: $x }>
+          ]
+
+          <require-service
+            <config-watcher "/etc/syndicate/network" { config: $network log: $log }>>
+
+          # Dataspace of actual configuration.
+          ? <machine-dataspace ?machine> [
+            $config += <network-dataspace $network $machine>
+
+            ? <service-object <daemon network-configurator> ?obj> [
+              # The configurator can only observe $network and
+              # only assert <address> or <route> into $machine.
+              $obj += <network-dataspace
+                <* $network [ <reject <not <rec Observe>>> ]>
+                <* $machine [<reject <and <not<rec address>> <not<rec route>>>> ]>>
+            ]
+
+          ]
+        '';
+      }
+      (mapAttrs' mkInterfaceFile cfg.interfaces)
+    ];
+    synit.core.daemons.network-configurator =
       let
         inherit (pkgs.tclPackages) tcl sycl;
       in
@@ -78,6 +108,7 @@ in
           ./networking.tcl
         ];
         env.TCLLIBPATH = "${sycl}/lib/${sycl.name}";
+        path = [ pkgs.iproute2 ];
         protocol = "text/syndicate";
       };
   };

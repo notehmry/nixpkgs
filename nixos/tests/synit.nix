@@ -10,26 +10,11 @@
       ...
     }:
     {
-      environment.etc."syndicate/services/greetd.pr".text = ''
-        <require-service <daemon greetd-1>>
-      '';
-
-      services.greetd = {
-        enable = true;
-        vt = 1;
-        settings = {
-          default_session = {
-            command = "${pkgs.greetd}/bin/agreety";
-          };
-        };
-      };
-
       synit.enable = true;
-
-      # virtualisation.graphics = false;
     };
 
   testScript = ''
+    machine.wait_for_open_port(24)
     machine.succeed("poweroff")
   '';
 

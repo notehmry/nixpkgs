@@ -237,6 +237,13 @@ in
       MaxLevelConsole=debug
     '';
 
+    environment.etc."syndicate/core/test-instrumentation.pr" = lib.mkIf config.synit.enable {
+      text = ''
+        <require-service <relay-listener <tcp "::" 24> $config>
+        <require-service <relay-listener <tcp "0.0.0.0" 24> $config>
+      '';
+    };
+
     systemd.extraConfig = ''
       # Don't clobber the console with duplicate systemd messages.
       ShowStatus=no
