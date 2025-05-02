@@ -71,7 +71,7 @@ in
     environment.etc = lib.mkMerge [
       {
         "syndicate/core/network-config.pr".text = ''
-          # Dataspace of intended configuration.
+          # Dataspace of intended network configuration.
           let ?network = dataspace
           $network ? ?x [
             $log ! <log "-" { line: "network" |+++|: $x }>
@@ -81,9 +81,14 @@ in
           <require-service
             <config-watcher "/etc/syndicate/network" { config: $network log: $log }>>
 
-          # Dataspace of actual configuration.
+          # Dataspace of actual network state.
           ? <machine-dataspace ?machine> [
             $config += <network-dataspace $network $machine>
+
+            # Announce a network milestone while an address with global scope is present.
+            $machine ? <address _ _ {"scope": "global"}> [
+              $config += <run-service <milestone network>>
+            ]
 
             ? <service-object <daemon network-configurator> ?obj> [
               # The configurator can only observe $network and
@@ -92,7 +97,6 @@ in
                 <* $network [ <reject <not <rec Observe>>> ]>
                 <* $machine [<reject <and <not<rec address>> <not<rec route>>>> ]>>
             ]
-
           ]
         '';
       }
