@@ -294,263 +294,265 @@ let
       cat $target >>check.el
       execlineb -W check.el || [ $? -ne 100 ]
     '';
-    replacements =       let
+    replacements =
+      let
         cfg = config.boot.initrd;
-      in {
-      inherit (config.system.nixos) distroName;
-      inherit (config.boot.initrd) kernelModules;
-      inherit extraUtils failScript mdevdConf;
-      shell = "${extraUtils}/bin/ash";
+      in
+      {
+        inherit (config.system.nixos) distroName;
+        inherit (config.boot.initrd) kernelModules;
+        inherit extraUtils failScript mdevdConf;
+        shell = "${extraUtils}/bin/ash";
 
-      execlineb = lib.getExe pkgs.execline;
+        execlineb = lib.getExe pkgs.execline;
 
         preDeviceCommands = callAshScript "pre-device.ash" cfg.preDeviceCommands;
         postDeviceCommands = callAshScript "post-device.ash" cfg.postDeviceCommands;
 
-      initramfsPath = lib.makeBinPath [
-        pkgs.execline
-        extraUtils
-        pkgs.s6-linux-utils
-        pkgs.s6-portable-utils
-        pkgs.mdevd
-      ];
+        initramfsPath = lib.makeBinPath [
+          pkgs.execline
+          extraUtils
+          pkgs.s6-linux-utils
+          pkgs.s6-portable-utils
+          pkgs.mdevd
+        ];
 
-      specialMounts = map (
-        {
-          fsType,
-          options,
-          device,
-          mountPoint,
-          ...
-        }:
-        ''
-          if { s6-mkdir -m 0755 -p ${mountPoint} }
-          if { s6-mount -t ${fsType} ${mountOptionArgs options} ${device} ${mountPoint} }
-        ''
-      ) (fileSystemsList config.boot.specialFileSystems);
+        specialMounts = map (
+          {
+            fsType,
+            options,
+            device,
+            mountPoint,
+            ...
+          }:
+          ''
+            if { s6-mkdir -m 0755 -p ${mountPoint} }
+            if { s6-mount -t ${fsType} ${mountOptionArgs options} ${device} ${mountPoint} }
+          ''
+        ) (fileSystemsList config.boot.specialFileSystems);
 
-      setHostId = optionalString (config.networking.hostId != null) (
-        with builtins;
-        let
-          f =
-            if pkgs.stdenv.hostPlatform.isBigEndian then
-              i: "\\\\x${substring i * 2 2 config.networking.hostId}"
-            else
-              i: "\\\\x${substring (6 - i * 2) 2 config.networking.hostId}";
-        in
-        ''
-          background {
-            redirfd -w 1 /etc/hostid
-            printf ${concatStrings (genList f 4)}
+        setHostId = optionalString (config.networking.hostId != null) (
+          with builtins;
+          let
+            f =
+              if pkgs.stdenv.hostPlatform.isBigEndian then
+                i: "\\\\x${substring i * 2 2 config.networking.hostId}"
+              else
+                i: "\\\\x${substring (6 - i * 2) 2 config.networking.hostId}";
+          in
+          ''
+            background {
+              redirfd -w 1 /etc/hostid
+              printf ${concatStrings (genList f 4)}
+            }
+          ''
+        );
+
+        postResumeCommands = callAshScript "post-resume.ash" config.boot.initrd.postResumeCommands;
+
+        normalMounts = callAshScript "mount.ash" ''
+          # Create the mount point if required.
+          makeMountPoint() {
+              local device="$1"
+              local mountPoint="$2"
+              local options="$3"
+
+              local IFS=,
+
+              # If we're bind mounting a file, the mount point should also be a file.
+              if ! [ -d "$device" ]; then
+                  for opt in $options; do
+                      if [ "$opt" = bind ] || [ "$opt" = rbind ]; then
+                          s6-mkdir -p "$(dirname "/mnt-root$mountPoint")"
+                          s6-touch "/mnt-root$mountPoint"
+                          return
+                      fi
+                  done
+              fi
+
+              s6-mkdir -m 0755 -p "/mnt-root$mountPoint"
           }
-        ''
-      );
 
-      postResumeCommands = callAshScript "post-resume.ash" config.boot.initrd.postResumeCommands;
+          # Check the specified file system, if appropriate.
+          checkFS() {
+              local device="$1"
+              local fsType="$2"
 
-      normalMounts = callAshScript "mount.ash" ''
-        # Create the mount point if required.
-        makeMountPoint() {
-            local device="$1"
-            local mountPoint="$2"
-            local options="$3"
+              # Only check block devices.
+              if [ ! -b "$device" ]; then return 0; fi
 
-            local IFS=,
+              # Don't check ROM filesystems.
+              if [ "$fsType" = iso9660 -o "$fsType" = udf ]; then return 0; fi
 
-            # If we're bind mounting a file, the mount point should also be a file.
-            if ! [ -d "$device" ]; then
-                for opt in $options; do
-                    if [ "$opt" = bind ] || [ "$opt" = rbind ]; then
-                        s6-mkdir -p "$(dirname "/mnt-root$mountPoint")"
-                        s6-touch "/mnt-root$mountPoint"
-                        return
-                    fi
-                done
-            fi
+              # Don't check resilient COWs as they validate the fs structures at mount time
+              if [ "$fsType" = btrfs -o "$fsType" = zfs -o "$fsType" = bcachefs ]; then return 0; fi
 
-            s6-mkdir -m 0755 -p "/mnt-root$mountPoint"
-        }
+              # Skip fsck for apfs as the fsck utility does not support repairing the filesystem (no -a option)
+              if [ "$fsType" = apfs ]; then return 0; fi
 
-        # Check the specified file system, if appropriate.
-        checkFS() {
-            local device="$1"
-            local fsType="$2"
+              # Skip fsck for nilfs2 - not needed by design and no fsck tool for this filesystem.
+              if [ "$fsType" = nilfs2 ]; then return 0; fi
 
-            # Only check block devices.
-            if [ ! -b "$device" ]; then return 0; fi
+              # Skip fsck for inherently readonly filesystems.
+              if [ "$fsType" = squashfs ]; then return 0; fi
 
-            # Don't check ROM filesystems.
-            if [ "$fsType" = iso9660 -o "$fsType" = udf ]; then return 0; fi
+              # Skip fsck.erofs because it is still experimental.
+              if [ "$fsType" = erofs ]; then return 0; fi
 
-            # Don't check resilient COWs as they validate the fs structures at mount time
-            if [ "$fsType" = btrfs -o "$fsType" = zfs -o "$fsType" = bcachefs ]; then return 0; fi
-
-            # Skip fsck for apfs as the fsck utility does not support repairing the filesystem (no -a option)
-            if [ "$fsType" = apfs ]; then return 0; fi
-
-            # Skip fsck for nilfs2 - not needed by design and no fsck tool for this filesystem.
-            if [ "$fsType" = nilfs2 ]; then return 0; fi
-
-            # Skip fsck for inherently readonly filesystems.
-            if [ "$fsType" = squashfs ]; then return 0; fi
-
-            # Skip fsck.erofs because it is still experimental.
-            if [ "$fsType" = erofs ]; then return 0; fi
-
-            # If we couldn't figure out the FS type, then skip fsck.
-            if [ "$fsType" = auto ]; then
-                echo 'cannot check filesystem with type "auto"!'
-                return 0
-            fi
-
-            # Device might be already mounted manually
-            # e.g. NBD-device or the host filesystem of the file which contains encrypted root fs
-            if mount | grep -q "^$device on "; then
-                echo "skip checking already mounted $device"
-                return 0
-            fi
-
-            # Optionally, skip fsck on journaling filesystems.  This option is
-            # a hack - it's mostly because e2fsck on ext3 takes much longer to
-            # recover the journal than the ext3 implementation in the kernel
-            # does (minutes versus seconds).
-            ${lib.optionalString config.boot.initrd.checkJournalingFS ''
-              if test -a \
-                  \( "$fsType" = ext3 -o "$fsType" = ext4 -o "$fsType" = reiserfs \
-                  -o "$fsType" = xfs -o "$fsType" = jfs -o "$fsType" = f2fs \)
-              then
+              # If we couldn't figure out the FS type, then skip fsck.
+              if [ "$fsType" = auto ]; then
+                  echo 'cannot check filesystem with type "auto"!'
                   return 0
               fi
-            ''}
 
-            echo "checking $device..."
+              # Device might be already mounted manually
+              # e.g. NBD-device or the host filesystem of the file which contains encrypted root fs
+              if mount | grep -q "^$device on "; then
+                  echo "skip checking already mounted $device"
+                  return 0
+              fi
 
-            fsck -V -a "$device"
-            fsckResult=$?
+              # Optionally, skip fsck on journaling filesystems.  This option is
+              # a hack - it's mostly because e2fsck on ext3 takes much longer to
+              # recover the journal than the ext3 implementation in the kernel
+              # does (minutes versus seconds).
+              ${lib.optionalString config.boot.initrd.checkJournalingFS ''
+                if test -a \
+                    \( "$fsType" = ext3 -o "$fsType" = ext4 -o "$fsType" = reiserfs \
+                    -o "$fsType" = xfs -o "$fsType" = jfs -o "$fsType" = f2fs \)
+                then
+                    return 0
+                fi
+              ''}
 
-            if test $(($fsckResult | 2)) = $fsckResult; then
-                echo "fsck finished, rebooting..."
-                sleep 3
-                reboot -f
-            fi
+              echo "checking $device..."
 
-            if test $(($fsckResult | 4)) = $fsckResult; then
-                echo "$device has unrepaired errors, please fix them manually."
-                ${failScript}
-            fi
+              fsck -V -a "$device"
+              fsckResult=$?
 
-            if test $fsckResult -ge 8; then
-                echo "fsck on $device failed."
-                ${failScript}
-            fi
+              if test $(($fsckResult | 2)) = $fsckResult; then
+                  echo "fsck finished, rebooting..."
+                  sleep 3
+                  reboot -f
+              fi
 
-            return 0
-        }
+              if test $(($fsckResult | 4)) = $fsckResult; then
+                  echo "$device has unrepaired errors, please fix them manually."
+                  ${failScript}
+              fi
 
-        # Function for mounting a file system.
-        mountFS() {
-            local device="$1"
-            local mountPoint="$2"
-            local options="$3"
-            local fsType="$4"
+              if test $fsckResult -ge 8; then
+                  echo "fsck on $device failed."
+                  ${failScript}
+              fi
 
-            if [ "$fsType" = auto ]; then
-                fsType=$(blkid -o value -s TYPE "$device")
-                if [ -z "$fsType" ]; then fsType=auto; fi
-            fi
+              return 0
+          }
 
-            # Filter out x- options, which busybox doesn't do yet.
-            local optionsFiltered="$(IFS=,; for i in $options; do if [ "''${i:0:2}" != "x-" ]; then echo -n $i,; fi; done)"
-            # Prefix (lower|upper|work)dir with /mnt-root (overlayfs)
-            local optionsPrefixed="$( echo "$optionsFiltered" | sed -E 's#\<(lowerdir|upperdir|workdir)=#\1=/mnt-root#g' )"
+          # Function for mounting a file system.
+          mountFS() {
+              local device="$1"
+              local mountPoint="$2"
+              local options="$3"
+              local fsType="$4"
 
-            echo "$device /mnt-root$mountPoint $fsType $optionsPrefixed" >> /etc/fstab
+              if [ "$fsType" = auto ]; then
+                  fsType=$(blkid -o value -s TYPE "$device")
+                  if [ -z "$fsType" ]; then fsType=auto; fi
+              fi
 
-            checkFS "$device" "$fsType"
+              # Filter out x- options, which busybox doesn't do yet.
+              local optionsFiltered="$(IFS=,; for i in $options; do if [ "''${i:0:2}" != "x-" ]; then echo -n $i,; fi; done)"
+              # Prefix (lower|upper|work)dir with /mnt-root (overlayfs)
+              local optionsPrefixed="$( echo "$optionsFiltered" | sed -E 's#\<(lowerdir|upperdir|workdir)=#\1=/mnt-root#g' )"
 
-            # Create backing directories for overlayfs
-            if [ "$fsType" = overlay ]; then
-                for i in upper work; do
-                     dir="$( echo "$optionsPrefixed" | grep -o "''${i}dir=[^,]*" )"
-                     s6-mkdir -m 0700 -p "''${dir##*=}"
-                done
-            fi
+              echo "$device /mnt-root$mountPoint $fsType $optionsPrefixed" >> /etc/fstab
 
-            echo "mounting $device on $mountPoint..."
+              checkFS "$device" "$fsType"
 
-            makeMountPoint "$device" "$mountPoint" "$optionsPrefixed"
+              # Create backing directories for overlayfs
+              if [ "$fsType" = overlay ]; then
+                  for i in upper work; do
+                       dir="$( echo "$optionsPrefixed" | grep -o "''${i}dir=[^,]*" )"
+                       s6-mkdir -m 0700 -p "''${dir##*=}"
+                  done
+              fi
 
-            # For ZFS and CIFS mounts, retry a few times before giving up.
-            # We do this for ZFS as a workaround for issue NixOS/nixpkgs#25383.
-            local n=0
-            while true; do
-                mount "/mnt-root$mountPoint" && break
-                if [ \( "$fsType" != cifs -a "$fsType" != zfs \) -o "$n" -ge 10 ]; then ${failScript}; break; fi
-                echo "retrying..."
-                sleep 1
-                n=$((n + 1))
-            done
+              echo "mounting $device on $mountPoint..."
 
-            # For bind mounts, busybox has a tendency to ignore options, which can be a
-            # security issue (e.g. "nosuid"). Remounting the partition seems to fix the
-            # issue.
-            mount "/mnt-root$mountPoint" -o "remount,$optionsPrefixed"
+              makeMountPoint "$device" "$mountPoint" "$optionsPrefixed"
 
-            [ "$mountPoint" == "/" ] &&
-                [ -f "/mnt-root/etc/NIXOS_LUSTRATE" ] &&
-                lustrateRoot "/mnt-root"
+              # For ZFS and CIFS mounts, retry a few times before giving up.
+              # We do this for ZFS as a workaround for issue NixOS/nixpkgs#25383.
+              local n=0
+              while true; do
+                  mount "/mnt-root$mountPoint" && break
+                  if [ \( "$fsType" != cifs -a "$fsType" != zfs \) -o "$n" -ge 10 ]; then ${failScript}; break; fi
+                  echo "retrying..."
+                  sleep 1
+                  n=$((n + 1))
+              done
 
-            s6-true
-        }
+              # For bind mounts, busybox has a tendency to ignore options, which can be a
+              # security issue (e.g. "nosuid"). Remounting the partition seems to fix the
+              # issue.
+              mount "/mnt-root$mountPoint" -o "remount,$optionsPrefixed"
 
-        lustrateRoot () {
-            local root="$1"
+              [ "$mountPoint" == "/" ] &&
+                  [ -f "/mnt-root/etc/NIXOS_LUSTRATE" ] &&
+                  lustrateRoot "/mnt-root"
 
-            echo
-            echo -e "\e[1;33m<<< @distroName@ is now lustrating the root filesystem (cruft goes to /old-root) >>>\e[0m"
-            echo
+              s6-true
+          }
 
-            s6-mkdir -m 0755 -p "$root/old-root.tmp"
+          lustrateRoot () {
+              local root="$1"
 
-            echo
-            echo "Moving impurities out of the way:"
-            for d in "$root"/*
-            do
-                [ "$d" == "$root/nix"          ] && continue
-                [ "$d" == "$root/boot"         ] && continue # Don't render the system unbootable
-                [ "$d" == "$root/old-root.tmp" ] && continue
+              echo
+              echo -e "\e[1;33m<<< @distroName@ is now lustrating the root filesystem (cruft goes to /old-root) >>>\e[0m"
+              echo
 
-                mv -v "$d" "$root/old-root.tmp"
-            done
+              s6-mkdir -m 0755 -p "$root/old-root.tmp"
 
-            # Use .tmp to make sure subsequent invocations don't clash
-            mv -v "$root/old-root.tmp" "$root/old-root"
+              echo
+              echo "Moving impurities out of the way:"
+              for d in "$root"/*
+              do
+                  [ "$d" == "$root/nix"          ] && continue
+                  [ "$d" == "$root/boot"         ] && continue # Don't render the system unbootable
+                  [ "$d" == "$root/old-root.tmp" ] && continue
 
-            s6-mkdir -m 0755 -p "$root/etc"
-            s6-touch "$root/etc/NIXOS"
+                  mv -v "$d" "$root/old-root.tmp"
+              done
 
-            exec 4< "$root/old-root/etc/NIXOS_LUSTRATE"
+              # Use .tmp to make sure subsequent invocations don't clash
+              mv -v "$root/old-root.tmp" "$root/old-root"
 
-            echo
-            echo "Restoring selected impurities:"
-            while read -u 4 keeper; do
-                dirname="$(dirname "$keeper")"
-                mkdir -m 0755 -p "$root/$dirname"
-                cp -av "$root/old-root/$keeper" "$root/$keeper"
-            done
+              s6-mkdir -m 0755 -p "$root/etc"
+              s6-touch "$root/etc/NIXOS"
 
-            exec 4>&-
-        }
+              exec 4< "$root/old-root/etc/NIXOS_LUSTRATE"
 
-        ${lib.concatStringsSep "\n" (
-          map (
-            fs:
-            "mountFS ${
-              if fs.device != null then fs.device else "/dev/disk/by-label/${fs.label}"
-            } ${fs.mountPoint} ${builtins.concatStringsSep "," fs.options} ${fs.fsType}"
-          ) fileSystems
-        )}'';
-    };
+              echo
+              echo "Restoring selected impurities:"
+              while read -u 4 keeper; do
+                  dirname="$(dirname "$keeper")"
+                  mkdir -m 0755 -p "$root/$dirname"
+                  cp -av "$root/old-root/$keeper" "$root/$keeper"
+              done
+
+              exec 4>&-
+          }
+
+          ${lib.concatStringsSep "\n" (
+            map (
+              fs:
+              "mountFS ${
+                if fs.device != null then fs.device else "/dev/disk/by-label/${fs.label}"
+              } ${fs.mountPoint} ${builtins.concatStringsSep "," fs.options} ${fs.fsType}"
+            ) fileSystems
+          )}'';
+      };
   };
 
   # The closure of the init script of boot stage 1 is what we put in the initramfs.
