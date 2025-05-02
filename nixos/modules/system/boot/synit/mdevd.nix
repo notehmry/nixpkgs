@@ -8,6 +8,7 @@
 {
   config = lib.mkIf config.synit.enable {
     synit.core.daemons.mdevd = {
+      logging.enable = true;
       argv = [
         (lib.getExe pkgs.mdevd)
         "-v"

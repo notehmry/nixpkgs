@@ -8,12 +8,16 @@
 
 let
   inherit (lib)
+    getExe
+    getExe'
+    literalMD
     makeBinPath
     mapAttrs
     mapAttrs'
+    mkEnableOption
     mkMerge
     mkOption
-    getExe
+    optional
     types
     ;
 
@@ -28,21 +32,25 @@ let
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
 
-  logWrapper = utils.writeExeclineScript "system-bus.el" "-s" ''
-    #!${lib.getExe pkgs.execline} -s0
-    fdreserve 2
-    multisubstitute {
-      importas logr FD0
-      importas logw FD1
-    }
-    piperw $logr $logw
-    background {
-      fdmove 0 $logr
-      ${pkgs.s6}/bin/s6-log /var/log/synit
-    }
-    fdmove 2 $logw
-    $@
-  '';
+  # Create a logging wrapper for some arguments and a directory.
+  # This could be decomposed further to a list of command-line
+  # arguments without calling execlineb.
+  makeLogger =
+    args: dir:
+    utils.writeExeclineScript "logger.el" "-s0" ''
+      fdreserve 2
+      multisubstitute {
+        importas logr FD0
+        importas logw FD1
+      }
+      piperw $logr $logw
+      background {
+        fdmove 0 $logr
+        ${getExe' pkgs.s6 "s6-log"} ${toString args} "${dir}"
+      }
+      fdmove 2 $logw
+      $@
+    '';
 
   daemonSubmodule = types.submodule (
     { name, ... }:
@@ -115,7 +123,7 @@ let
               package
             ]);
           default = [ pkgs.coreutils ];
-          defaultText = lib.literalMD "{option}`config.security.wrapperDir` and GNU coreutils";
+          defaultText = literalMD "{option}`config.security.wrapperDir` and GNU coreutils";
           description = ''
             List of directories to compose into the PATH environmental variable.
           '';
@@ -159,6 +167,21 @@ let
           ];
           default = "always";
         };
+        logging = {
+          enable = mkEnableOption "inject a logging wrapper over this daemon.";
+          args = mkOption {
+            type = types.listOf types.str;
+            default = [ ];
+            description = ''
+              Command-line arguments passed to s6-log before the logging directory.
+            '';
+          };
+          dir = mkOption {
+            type = types.path;
+            defaultText = literalMD "/run/log/${name}";
+            default = "/run/log/${name}";
+          };
+        };
       };
     }
   );
@@ -166,7 +189,9 @@ let
   daemonToPreserves = attrs: [
     attrs.label
     {
-      argv = builtins.toJSON attrs.argv;
+      argv = builtins.toJSON (
+        optional attrs.logging.enable (makeLogger attrs.logging.args attrs.logging.dir)
+        ++ attrs.argv);
       env =
         let
           env' = lib.optionalAttrs (attrs.env != null) attrs.env;
@@ -206,8 +231,8 @@ in
         An emptly list disables logging.
       '';
       type = with types; listOf strOrPath;
-      default = [ logWrapper ];
-      defaultText = lib.literalMD "`s6-log` logging to `/var/log/synit`";
+      default = [ (makeLogger [ ] "/var/log/synit") ];
+      defaultText = literalMD "`s6-log` logging to `/var/log/synit`";
     };
 
     core = {
