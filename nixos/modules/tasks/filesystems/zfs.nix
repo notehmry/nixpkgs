@@ -697,13 +697,6 @@ in
             This error can be triggered by using an absolute path, such as `"/dev/disk/..."`.
           '';
         }
-        {
-          assertion = cfgZfs.devNodes == "/dev/disk/by-id" -> config.systemd.enable;
-          message = ''
-            Cannot search /dev/disk/by-id for ZFS pools because
-            /dev/disk/by-id is an exclusive systemd/udev specific feature.
-          '';
-        }
       ];
 
       boot = {
