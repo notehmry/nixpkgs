@@ -2,6 +2,7 @@
   lib,
   buildGoModule,
   fetchFromGitHub,
+  pacproxy,
 }:
 
 buildGoModule rec {
@@ -16,6 +17,11 @@ buildGoModule rec {
   };
 
   vendorHash = "sha256-0Go+xwzaT1qt+cJfcPkC8ft3eB/OZCvOi2Pnn/A/rtQ=";
+
+  passthru.services.default = {
+    imports = [ ./service.nix ];
+    pacproxy.package = pacproxy;
+  };
 
   meta = with lib; {
     description = "No-frills local HTTP proxy server powered by a proxy auto-config (PAC) file";
