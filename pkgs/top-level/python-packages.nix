@@ -11470,6 +11470,8 @@ self: super: with self; {
 
   presenterm-export = callPackage ../development/python-modules/presenterm-export { };
 
+  preserves = callPackage ../development/python-modules/preserves { };
+
   preshed = callPackage ../development/python-modules/preshed { };
 
   pretend = callPackage ../development/python-modules/pretend { };
