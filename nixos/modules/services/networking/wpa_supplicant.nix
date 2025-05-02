@@ -182,6 +182,36 @@ let
       '';
     };
 
+  # Creates a synit daemon for wpa_supplicant bound to a given (or any) interface
+  mkDaemon = iface: {
+    logging.enable = true;
+    argv =
+      optionals cfg.allowAuxiliaryImperativeNetworks [
+        "foreground"
+        " touch"
+        " /etc/wpa_supplicant.conf"
+        ""
+      ]
+      ++ [
+        "fdmove"
+        "-c"
+        "1"
+        "2"
+        (getExe pkgs.wpa_supplicant)
+        "-D${cfg.driver}"
+      ]
+      ++ optional (iface != null) "-i${iface}"
+      ++ (
+        if cfg.allowAuxiliaryImperativeNetworks then
+          [
+            "-c$/etc/wpa_supplicant.conf"
+            "-I${configFile}"
+          ]
+        else
+          [ "-c${configFile}" ]
+      );
+  };
+
   systemctl = "/run/current-system/systemd/bin/systemctl";
 
 in
@@ -607,6 +637,12 @@ in
       ACTION=="add|remove", SUBSYSTEM=="net", ENV{DEVTYPE}=="wlan", \
       RUN+="${systemctl} try-restart wpa_supplicant.service"
     '';
+
+    synit.daemons =
+      if cfg.interfaces == [ ] then
+        { wpa_supplicant = mkDaemon null; }
+      else
+        listToAttrs (map (i: nameValuePair "wpa_supplicant-${i}" (mkDaemon i)) cfg.interfaces);
   };
 
   meta.maintainers = with lib.maintainers; [ rnhmjoj ];
