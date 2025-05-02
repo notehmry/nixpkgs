@@ -102,63 +102,6 @@ let
       }
     '';
 
-  mkScript =
-    iface:
-    let
-      configStr =
-        if cfg.allowAuxiliaryImperativeNetworks then
-          "-c /etc/wpa_supplicant.conf -I ${configFile}"
-        else
-          "-c ${configFile}";
-    in
-    ''
-      ${optionalString (configIsGenerated && !cfg.allowAuxiliaryImperativeNetworks) ''
-        if [ -f /etc/wpa_supplicant.conf ]; then
-          echo >&2 "<3>/etc/wpa_supplicant.conf present but ignored. Generated ${configFile} is used instead."
-        fi
-      ''}
-
-      # ensure wpa_supplicant.conf exists, or the daemon will fail to start
-      ${optionalString cfg.allowAuxiliaryImperativeNetworks ''
-        touch /etc/wpa_supplicant.conf
-      ''}
-
-      iface_args="-s ${optionalString cfg.dbusControlled "-u"} -D${cfg.driver} ${configStr}"
-
-      ${
-        if iface == null then
-          ''
-            # detect interfaces automatically
-
-            # check if there are no wireless interfaces
-            if ! find -H /sys/class/net/* -name wireless | grep -q .; then
-              # if so, wait until one appears
-              echo "Waiting for wireless interfaces"
-              grep -q '^ACTION=add' < <(stdbuf -oL -- udevadm monitor -s net/wlan -pu)
-              # Note: the above line has been carefully written:
-              # 1. The process substitution avoids udevadm hanging (after grep has quit)
-              #    until it tries to write to the pipe again. Not even pipefail works here.
-              # 2. stdbuf is needed because udevadm output is buffered by default and grep
-              #    may hang until more udev events enter the pipe.
-            fi
-
-            # add any interface found to the daemon arguments
-            for name in $(find -H /sys/class/net/* -name wireless | cut -d/ -f 5); do
-              echo "Adding interface $name"
-              args+="''${args:+ -N} -i$name $iface_args"
-            done
-          ''
-        else
-          ''
-            # add known interface to the daemon arguments
-            args="-i${iface} $iface_args"
-          ''
-      }
-
-      # finally start daemon
-      exec wpa_supplicant $args
-    '';
-
   # Creates a systemd unit for wpa_supplicant bound to a given (or any) interface
   mkUnit =
     iface:
@@ -166,6 +109,11 @@ let
       deviceUnit = optional (
         iface != null
       ) "sys-subsystem-net-devices-${utils.escapeSystemdPath iface}.device";
+      configStr =
+        if cfg.allowAuxiliaryImperativeNetworks then
+          "-c /etc/wpa_supplicant.conf -I ${configFile}"
+        else
+          "-c ${configFile}";
     in
     {
       description = "WPA Supplicant instance" + optionalString (iface != null) " for interface ${iface}";
@@ -185,13 +133,54 @@ let
       serviceConfig.RuntimeDirectory = "wpa_supplicant";
       serviceConfig.RuntimeDirectoryMode = "700";
 
-      script = mkScript iface;
-    };
+      script = ''
+        ${optionalString (configIsGenerated && !cfg.allowAuxiliaryImperativeNetworks) ''
+          if [ -f /etc/wpa_supplicant.conf ]; then
+            echo >&2 "<3>/etc/wpa_supplicant.conf present but ignored. Generated ${configFile} is used instead."
+          fi
+        ''}
 
-  mkSynitDaemon = iface: {
-    argv = [ (pkgs.writeShellScript "wpa_supplicant.sh" (mkScript iface)) ];
-    isRequired = true;
-  };
+        # ensure wpa_supplicant.conf exists, or the daemon will fail to start
+        ${optionalString cfg.allowAuxiliaryImperativeNetworks ''
+          touch /etc/wpa_supplicant.conf
+        ''}
+
+        iface_args="-s ${optionalString cfg.dbusControlled "-u"} -D${cfg.driver} ${configStr}"
+
+        ${
+          if iface == null then
+            ''
+              # detect interfaces automatically
+
+              # check if there are no wireless interfaces
+              if ! find -H /sys/class/net/* -name wireless | grep -q .; then
+                # if so, wait until one appears
+                echo "Waiting for wireless interfaces"
+                grep -q '^ACTION=add' < <(stdbuf -oL -- udevadm monitor -s net/wlan -pu)
+                # Note: the above line has been carefully written:
+                # 1. The process substitution avoids udevadm hanging (after grep has quit)
+                #    until it tries to write to the pipe again. Not even pipefail works here.
+                # 2. stdbuf is needed because udevadm output is buffered by default and grep
+                #    may hang until more udev events enter the pipe.
+              fi
+
+              # add any interface found to the daemon arguments
+              for name in $(find -H /sys/class/net/* -name wireless | cut -d/ -f 5); do
+                echo "Adding interface $name"
+                args+="''${args:+ -N} -i$name $iface_args"
+              done
+            ''
+          else
+            ''
+              # add known interface to the daemon arguments
+              args="-i${iface} $iface_args"
+            ''
+        }
+
+        # finally start daemon
+        exec wpa_supplicant $args
+      '';
+    };
 
   systemctl = "/run/current-system/systemd/bin/systemctl";
 
@@ -618,14 +607,6 @@ in
       ACTION=="add|remove", SUBSYSTEM=="net", ENV{DEVTYPE}=="wlan", \
       RUN+="${systemctl} try-restart wpa_supplicant.service"
     '';
-
-    synit.daemons =
-      if cfg.interfaces == [ ] then
-        { wpa_supplicant = mkSynitDaemon null; }
-      else
-        listToAttrs (
-          map (iface: nameValuePair "wpa_supplicant-${iface}" (mkSynitDaemon iface)) cfg.interfaces
-        );
   };
 
   meta.maintainers = with lib.maintainers; [ rnhmjoj ];

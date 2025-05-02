@@ -16932,6 +16932,8 @@ self: super: with self; {
 
   syncer = callPackage ../development/python-modules/syncer { };
 
+  syndicate-py = callPackage ../development/python-modules/syndicate-py { };
+
   syndication-domination = toPythonModule (
     pkgs.syndication-domination.override {
       enablePython = true;
