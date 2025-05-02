@@ -2,10 +2,13 @@
   config,
   lib,
   pkgs,
+  utils,
   ...
 }:
 
 let
+  inherit (lib) optional;
+
   cfg = config.synit;
 in
 {
@@ -18,7 +21,7 @@ in
         systemConfig = null; # replaced in ../activation/top-level.nix
         synitPid1 = lib.getExe cfg.pid1.package;
         synitPid1Args = lib.escapeShellArgs (
-          cfg.pid2.logger
+          optional cfg.pid1.logging.enable (utils.makeLogger cfg.pid1.logging.args cfg.pid1.logging.dir)
           ++ [
             (lib.getExe cfg.syndicate-server.package)
             "--inferior"

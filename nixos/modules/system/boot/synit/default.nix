@@ -32,26 +32,6 @@ let
   cfg = config.synit;
   mkIfSynit = lib.mkIf cfg.enable;
 
-  # Create a logging wrapper for some arguments and a directory.
-  # This could be decomposed further to a list of command-line
-  # arguments without calling execlineb.
-  makeLogger =
-    args: dir:
-    utils.writeExeclineScript "logger.el" "-s0" ''
-      fdreserve 2
-      multisubstitute {
-        importas logr FD0
-        importas logw FD1
-      }
-      piperw $logr $logw
-      background {
-        fdmove 0 $logr
-        ${getExe' pkgs.s6 "s6-log"} ${toString args} "${dir}"
-      }
-      fdmove 2 $logw
-      $@
-    '';
-
   daemonSubmodule = types.submodule (
     { name, ... }:
     {
@@ -168,7 +148,9 @@ let
           default = "always";
         };
         logging = {
-          enable = mkEnableOption "inject a logging wrapper over this daemon.";
+          enable = mkEnableOption "inject a logging wrapper over this daemon." // {
+            enable = true;
+          };
           args = mkOption {
             type = types.listOf types.str;
             default = [ ];
@@ -178,8 +160,11 @@ let
           };
           dir = mkOption {
             type = types.path;
-            defaultText = literalMD "/run/log/${name}";
-            default = "/run/log/${name}";
+            defaultText = literalMD "/var/log/${name}";
+            default = "/var/log/${name}";
+            description = ''
+              Directory for log files from this daemon.
+            '';
           };
         };
       };
@@ -190,8 +175,8 @@ let
     attrs.label
     {
       argv = builtins.toJSON (
-        optional attrs.logging.enable (makeLogger attrs.logging.args attrs.logging.dir)
-        ++ attrs.argv);
+        optional attrs.logging.enable (utils.makeLogger attrs.logging.args attrs.logging.dir) ++ attrs.argv
+      );
       env =
         let
           env' = lib.optionalAttrs (attrs.env != null) attrs.env;
@@ -225,16 +210,25 @@ in
     enable = lib.mkEnableOption "Synit system layer";
     syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
     pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
-    pid2.logger = lib.mkOption {
-      description = ''
-        Wapper that captures stderr of PID2 for logging.
-        An emptly list disables logging.
-      '';
-      type = with types; listOf strOrPath;
-      default = [ (makeLogger [ ] "/var/log/synit") ];
-      defaultText = literalMD "`s6-log` logging to `/var/log/synit`";
+    pid1.logging = {
+      enable = mkEnableOption "inject a logging wrapper." // {
+        enable = true;
+      };
+      args = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = ''
+          Command-line arguments passed to s6-log before the logging directory.
+        '';
+      };
+      dir = mkOption {
+        type = types.path;
+        default = "/var/log/synit";
+        description = ''
+          Directory for log files from the system bus.
+        '';
+      };
     };
-
     core = {
       daemons = mkOption {
         description = ''

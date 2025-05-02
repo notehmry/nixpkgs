@@ -436,6 +436,28 @@ let
         units = import ./systemd-network-units.nix { inherit lib systemdUtils; };
       };
     };
+
+    # Create a logging wrapper for some arguments and a directory.
+    # This could be decomposed further to a list of command-line
+    # arguments without calling execlineb.
+    makeLogger =
+      args: dir:
+      writeExeclineScript "logger.el" "-s0" ''
+        if { ${lib.getExe' pkgs.s6-portable-utils "s6-mkdir"} -p "${dir}" }
+        fdreserve 2
+        multisubstitute {
+          importas logr FD0
+          importas logw FD1
+        }
+        piperw $logr $logw
+        background {
+          fdmove 0 $logr
+          ${lib.getExe' pkgs.s6 "s6-log"} ${toString args} "${dir}"
+        }
+        fdmove 2 $logw
+        $@
+      '';
+
   };
 in
 utils
