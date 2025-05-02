@@ -62,12 +62,6 @@ in
   # Assert Synit services for those defined in isolation to the system.
   config = lib.mkIf config.synit.enable {
 
-    synit.requires = attrNames config.system.services;
-
-    synit.services = mapAttrs (serviceName: topLevelService: {
-      dependsOn = makeDaemonUpStates [ serviceName ] topLevelService;
-    }) config.system.services;
-
     synit.daemons = concatMapAttrs (
       serviceName: topLevelService: makeDaemons [ serviceName ] topLevelService
     ) config.system.services;

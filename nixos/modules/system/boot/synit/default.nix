@@ -47,7 +47,7 @@ let
         };
         isRequired = mkOption {
           type = types.bool;
-          default = false;
+          default = true;
           description = ''
             Whether this daemon is an explicitly required service.
           '';
@@ -241,42 +241,6 @@ in
       };
     };
 
-    requires = mkOption {
-      description = ''
-        Services required by the top-level configuration.
-        Each entry is the name of an attr in `config.synit.services`.
-      '';
-      type = with types; listOf str;
-    };
-
-    services = mkOption {
-      description = ''
-        Abstract Syndicate services representing NixOS services.
-      '';
-      default = { };
-      type = types.attrsOf (
-        types.submodule (
-          { name, ... }:
-          {
-            options = {
-              label = mkOption {
-                description = "Label used in assertions to refer to this service.";
-                type = preserves.literal;
-                default = [
-                  name
-                  { _record = "service"; }
-                ];
-              };
-              dependsOn = mkOption {
-                description = "List of services-states that this service depends on.";
-                type = types.listOf preserves.literal;
-              };
-            };
-          }
-        )
-      );
-    };
-
     daemons = mkOption {
       description = ''
         Definitions of daemons to assert into the Synit configuration dataspace.";
@@ -315,31 +279,12 @@ in
           (daemonToPreserves daemon)
         ];
       }) cfg.core.daemons)
-      {
-        "syndicate/services/daemons.pr".source = writePreservesFile "daemons.pr" (
-          map daemonToPreserves (builtins.attrValues config.synit.daemons)
-        );
-      }
-      (mapAttrs' (
-        serviceName:
-        { label, dependsOn }:
-        {
-          name = "syndicate/services/service-${serviceName}.pr";
-          value.source = writePreservesFile "service-${serviceName}.pr" (
-            [
-              [
-                label
-                { _record = "require-service"; }
-              ]
-            ]
-            ++ map (dependee: [
-              label
-              dependee
-              { _record = "depends-on"; }
-            ]) dependsOn
-          );
-        }
-      ) cfg.services)
+      (mapAttrs' (name: daemon: {
+        name = "syndicate/services/daemon-${name}.pr";
+        value.source = writePreservesFile "daemon-${name}.pr" [
+          (daemonToPreserves daemon)
+        ];
+      }) cfg.core.daemons)
       (
         with builtins;
         listToAttrs (
