@@ -15,7 +15,7 @@ syndicate::spawn actor {
     stopActor
   }
 
-  connect [environmentRoute] bus {
+  connect {<route [<unix "/run/synit/system-bus.sock">]>} bus {
     global argc
     global argv
 

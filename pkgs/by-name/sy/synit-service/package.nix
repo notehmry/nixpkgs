@@ -3,6 +3,7 @@
   stdenvNoCC,
   tclPackages,
   installShellFiles,
+  socat,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -19,7 +20,8 @@ stdenvNoCC.mkDerivation {
 
   installPhase = ''
     runHook preInstall
-    install -m755 -D ${./service.tcl} $out/bin/service 
+    tclWrapperArgs+=(--suffix PATH : ${lib.makeBinPath [ socat ]})
+    install -m755 -D ${./service.tcl} $out/bin/service
     installShellCompletion --fish --cmd service ${./completions.fish}
     runHook postInstall
   '';
