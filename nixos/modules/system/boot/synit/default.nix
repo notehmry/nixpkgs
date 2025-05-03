@@ -205,6 +205,7 @@ let
 in
 {
   imports = [
+    ./filesystems.nix
     ./logging.nix
     ./mdevd.nix
     ./networking.nix
