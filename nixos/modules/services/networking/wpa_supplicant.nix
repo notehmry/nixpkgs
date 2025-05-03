@@ -204,7 +204,7 @@ let
       ++ (
         if cfg.allowAuxiliaryImperativeNetworks then
           [
-            "-c$/etc/wpa_supplicant.conf"
+            "-c/etc/wpa_supplicant.conf"
             "-I${configFile}"
           ]
         else
