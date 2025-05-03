@@ -1468,6 +1468,12 @@ let
                 control = "optional";
                 modulePath = "${pkgs.intune-portal}/lib/security/pam_intune.so";
               }
+              {
+                name = "rundir";
+                enable = !config.systemd.enable;
+                control = "optional";
+                modulePath = "${pkgs.pam_rundir}/lib/security/pam_rundir.so";
+              }
             ];
           };
       };
