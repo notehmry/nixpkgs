@@ -224,7 +224,14 @@ in
     # `xwininfo' is used by the test driver to query open windows.
     environment.systemPackages = [ pkgs.xorg.xwininfo ];
 
-    synit.pid1.logging.enable = false;
+    synit.pid1.args = {
+      logger.text = [
+        (getExe' pkgs.execline "redirfd")
+        "-w"
+        "2"
+        "/dev/${qemu-common.qemuSerialDevice}"
+      ];
+    };
 
     services.journald.extraConfig = ''
       ForwardToConsole=yes

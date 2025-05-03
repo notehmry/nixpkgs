@@ -70,4 +70,4 @@ ln -sfn "$systemConfig" /run/booted-system
 export _RJEM_MALLOC_CONF="narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0"
 
 echo "starting Synit..."
-exec @synitPid1@ @synitPid1Args@
+exec @synitPid1Cmd@

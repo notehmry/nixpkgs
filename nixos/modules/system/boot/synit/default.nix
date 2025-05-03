@@ -9,17 +9,21 @@
 let
   inherit (lib)
     getExe
-    getExe'
     literalMD
     makeBinPath
     mapAttrs
     mapAttrs'
+    mkDefault
     mkEnableOption
+    mkPackageOption
+    mkIf
     mkMerge
     mkOption
     optional
+    optionalAttrs
     types
     ;
+  inherit (utils) makeLogger;
 
   strOrPath = with types; either str path;
 
@@ -30,7 +34,7 @@ let
   writePreservesFile = preserves.generate;
 
   cfg = config.synit;
-  mkIfSynit = lib.mkIf cfg.enable;
+  mkIfSynit = mkIf cfg.enable;
 
   daemonSubmodule = types.submodule (
     { name, ... }:
@@ -175,14 +179,14 @@ let
     attrs.label
     {
       argv = builtins.toJSON (
-        optional attrs.logging.enable (utils.makeLogger attrs.logging.args attrs.logging.dir) ++ attrs.argv
+        optional attrs.logging.enable (makeLogger attrs.logging.args attrs.logging.dir) ++ attrs.argv
       );
       env =
         let
-          env' = lib.optionalAttrs (attrs.env != null) attrs.env;
+          env' = optionalAttrs (attrs.env != null) attrs.env;
         in
         mapAttrs (_: v: if v == null then false else builtins.toJSON v) (
-          (lib.optionalAttrs (!attrs.clearEnv) config.systemd.globalEnvironment)
+          (optionalAttrs (!attrs.clearEnv) config.systemd.globalEnvironment)
           // env'
           // {
             PATH = env'.PATH or "${config.security.wrapperDir}:${makeBinPath attrs.path}";
@@ -207,27 +211,35 @@ in
   ];
 
   options.synit = {
-    enable = lib.mkEnableOption "Synit system layer";
-    syndicate-server.package = lib.mkPackageOption pkgs "syndicate-server" { };
-    pid1.package = lib.mkPackageOption pkgs "synit-pid1" { };
-    pid1.logging = {
-      enable = mkEnableOption "inject a logging wrapper." // {
-        enable = true;
+    enable = mkEnableOption "Synit system layer";
+    syndicate-server.package = mkPackageOption pkgs "syndicate-server" { };
+    pid1.package = mkPackageOption pkgs "synit-pid1" { };
+    pid1.args = mkOption {
+      description = "The PID1 command line.";
+      defaultText = literalMD "Attributes for `synit-pid`, `logger`, `syndicate-server`, and `syndicate-server-config`.";
+      example = {
+        control = {
+          deps = [ "syndicate-server" ];
+          text = [
+            "--control"
+          ];
+        };
       };
-      args = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = ''
-          Command-line arguments passed to s6-log before the logging directory.
-        '';
-      };
-      dir = mkOption {
-        type = types.path;
-        default = "/var/log/synit";
-        description = ''
-          Directory for log files from the system bus.
-        '';
-      };
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            deps = mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "List of argument groups that must preceded this one.";
+            };
+            text = mkOption {
+              type = types.uniq (types.listOf (types.either types.str types.path));
+              description = "Group of arguments for the pid1 command-line.";
+            };
+          };
+        }
+      );
     };
     core = {
       daemons = mkOption {
@@ -284,7 +296,7 @@ in
         value.source = writePreservesFile "daemon-${name}.pr" [
           (daemonToPreserves daemon)
         ];
-      }) cfg.core.daemons)
+      }) cfg.daemons)
       (
         with builtins;
         listToAttrs (
@@ -309,6 +321,30 @@ in
         )
       )
     ];
+
+    synit.pid1.args = {
+      synit-pid1 = {
+        text = mkDefault [ (getExe cfg.pid1.package) ];
+      };
+      logger = {
+        deps = [ "synit-pid1" ];
+        text = mkDefault [ (makeLogger [ ] "/var/log/synit") ];
+      };
+      syndicate-server = {
+        deps = [ "logger" ];
+        text = mkDefault [
+          (getExe cfg.syndicate-server.package)
+          "--inferior"
+        ];
+      };
+      syndicate-server-config = {
+        deps = [ "syndicate-server" ];
+        text = mkDefault [
+          "--config"
+          "${./config}/boot"
+        ];
+      };
+    };
 
     system.activationScripts.synit-config = {
       deps = [ "specialfs" ];
