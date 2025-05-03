@@ -12,8 +12,8 @@ buildNimSbom {
     domain = "git.syndicate-lang.org";
     owner = "ehmry";
     repo = "sycl";
-    rev = "fb289108cdcdcf2b1dbdeddc36f266a53364c9f3";
-    hash = "sha256-L9+EUsDiH7faGqp2TvHKe2MlOTlyK8fFnVntzP/PkeI=";
+    rev = "501afd7cbada77ba1912065efb98b5de9d46e8de";
+    hash = "sha256-YSBt7V+8uVEMZtwiNIHJ55tFss2El7daYbSpKMALryI=";
   };
 
   nativeBuildInputs = [
