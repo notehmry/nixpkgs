@@ -440,10 +440,9 @@ let
     # Create a logging wrapper for some arguments and a directory.
     # This could be decomposed further to a list of command-line
     # arguments without calling execlineb.
-    makeLogger =
-      args: dir:
-      writeExeclineScript "logger.el" "-s0" ''
-        if { ${lib.getExe' pkgs.s6-portable-utils "s6-mkdir"} -p "${dir}" }
+    makeLogger = args: dir: [
+      (writeExeclineScript "logger.el" "-s1" ''
+        if { ${lib.getExe' pkgs.s6-portable-utils "s6-mkdir"} -p "$1" }
         fdreserve 2
         multisubstitute {
           importas logr FD0
@@ -452,11 +451,13 @@ let
         piperw $logr $logw
         background {
           fdmove 0 $logr
-          ${lib.getExe' pkgs.s6 "s6-log"} ${toString args} "${dir}"
+          ${lib.getExe' pkgs.s6 "s6-log"} ${toString args} "$1"
         }
         fdmove 2 $logw
         $@
-      '';
+      '')
+      dir
+    ];
 
   };
 in

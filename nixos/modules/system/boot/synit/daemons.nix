@@ -16,7 +16,7 @@ let
     mkIf
     mkMerge
     mkOption
-    optional
+    optionals
     optionalAttrs
     types
     ;
@@ -149,7 +149,7 @@ let
           default = "always";
         };
         logging = {
-          enable = mkEnableOption "inject a logging wrapper over this daemon." // {
+          enable = (mkEnableOption "inject a logging wrapper over this daemon.") // {
             enable = true;
           };
           args = mkOption {
@@ -176,7 +176,7 @@ let
     attrs.label
     {
       argv = builtins.toJSON (
-        optional attrs.logging.enable (makeLogger attrs.logging.args attrs.logging.dir) ++ attrs.argv
+        optionals attrs.logging.enable (makeLogger attrs.logging.args attrs.logging.dir) ++ attrs.argv
       );
       env =
         let

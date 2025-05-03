@@ -105,7 +105,7 @@ in
       };
       logger = {
         deps = [ "synit-pid1" ];
-        text = mkDefault [ (makeLogger [ ] "/var/log/synit") ];
+        text = mkDefault (makeLogger [ ] "/var/log/synit");
       };
       syndicate-server = {
         deps = [ "logger" ];

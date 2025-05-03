@@ -5,10 +5,15 @@
   ...
 }:
 
+let
+  inherit (lib) getExe';
+in
+
 {
-  config = lib.mkIf config.synit.enable {
+  config = {
     synit.core.daemons.syslog = {
-      argv = [ (lib.getExe' pkgs.s6 "s6-socklog") ];
+      argv = [ (getExe' pkgs.s6 "s6-socklog") ];
+      logging.enable = true;
     };
   };
 }
