@@ -20,6 +20,8 @@ let
 
   inherit (utils) makeLogger;
 
+  ctrlSockPath = "/run/synit/system-bus.sock";
+
   cfg = config.synit;
   mkIfSynit = mkIf cfg.enable;
 
@@ -35,8 +37,20 @@ in
 
   options.synit = {
     enable = mkEnableOption "Synit system layer";
+
+    controlSocket = {
+    enable = mkEnableOption ''
+      the system bus control socket.
+      The socket will located at ${ctrlSockPath}.
+    '' // {
+      default = true;
+    };
+    };
+
     syndicate-server.package = mkPackageOption pkgs "syndicate-server" { };
+
     pid1.package = mkPackageOption pkgs "synit-pid1" { };
+
     pid1.args = mkOption {
       description = "The PID1 command line.";
       defaultText = literalMD "Attributes for `synit-pid`, `logger`, `syndicate-server`, and `syndicate-server-config`.";
@@ -74,6 +88,12 @@ in
       }
     ];
 
+    environment.etc."syndicate/core/controlSocket.pr" = mkIf cfg.controlSocket.enable {
+      text = ''
+        <require-service <relay-listener <unix "${ctrlSockPath}"> $config>>
+      '';
+    };
+
     environment.systemPackages = [
       cfg.syndicate-server.package
       pkgs.synit-service
@@ -105,7 +125,12 @@ in
 
     system.activationScripts.synit-config = {
       deps = [ "specialfs" ];
-      text = "install -m644 -d /run/etc/syndicate/{core,system,services}";
+      text = "install --mode=644 --directory /run/etc/syndicate/{core,system,services}";
+    }
+
+    system.acticationScripts.synit-run = mkIf {
+      deps = [ "specialfs" "users" ];
+      text = "install --group=wheel --mode=640 --directory /run/synit";
     };
 
     systemd.enable = false;
