@@ -165,7 +165,7 @@ in
           # Provide kbd with additional packages.
           environment.etc.kbd.source = "${consoleEnv pkgs.kbd}/share";
 
-          boot.initrd.preLVMCommands = lib.mkIf (!config.boot.initrd.systemd.enable) (
+          boot.initrd.postDeviceCommands = lib.mkIf (!config.boot.initrd.systemd.enable) (
             lib.mkBefore ''
               kbd_mode ${if isUnicode then "-u" else "-a"} -C /dev/console
               printf "\033%%${if isUnicode then "G" else "@"}" >> /dev/console
