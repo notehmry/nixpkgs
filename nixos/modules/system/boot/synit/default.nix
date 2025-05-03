@@ -276,8 +276,6 @@ in
       "Synit daemons are using systemd.globalEnvironment until a portable option is introduced."
     ];
 
-    environment.systemPackages = [ cfg.syndicate-server.package ];
-
     environment.etc = mkMerge [
       (mapAttrs' (name: daemon: {
         name = "syndicate/core/daemon-${name}.pr";
@@ -321,6 +319,11 @@ in
           ) (filter (name: cfg.daemons.${name}.isRequired) (attrNames cfg.daemons))
         )
       )
+    ];
+
+    environment.systemPackages = [
+      cfg.syndicate-server.package
+      pkgs.synit-service
     ];
 
     synit.pid1.args = {
