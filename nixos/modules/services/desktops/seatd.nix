@@ -7,13 +7,21 @@
 
 let
   cfg = config.services.seatd;
-  inherit (lib) mkEnableOption mkOption types;
+  inherit (lib)
+    mkEnableOption
+    mkOption
+    mkPackageOption
+    optional
+    types
+    ;
 in
 {
   meta.maintainers = with lib.maintainers; [ sinanmohd ];
 
   options.services.seatd = {
     enable = mkEnableOption "seatd";
+
+    package = mkPackageOption [ "seatd" ] { };
 
     user = mkOption {
       type = types.str;
@@ -38,11 +46,20 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    environment.systemPackages = with pkgs; [
-      seatd
-      sdnotify-wrapper
-    ];
+    environment.systemPackages = [
+      cfg.package
+    ] ++ optional config.systemd.enable pkgs.sdnotify-wrapper;
     users.groups.seat = lib.mkIf (cfg.group == "seat") { };
+
+    synit.daemons.seatd = {
+      argv = [
+        (getExe cfg.package)
+        "-u"
+        cfg.user
+        "-g"
+        cfg.group
+      ];
+    };
 
     systemd.services.seatd = {
       description = "Seat management daemon";
