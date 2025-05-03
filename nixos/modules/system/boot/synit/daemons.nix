@@ -199,6 +199,17 @@ let
     }
     { _record = "daemon"; }
   ];
+
+  requireDaemon =
+    { label, ... }:
+    [
+      [
+        label
+        { _record = "daemon"; }
+      ]
+      { _record = "require-service"; }
+    ];
+
 in
 {
   options.synit = {
@@ -233,13 +244,7 @@ in
       (mapAttrs' (name: daemon: {
         name = "syndicate/core/daemon-${name}.pr";
         value.source = writePreservesFile "daemon-${name}.pr" [
-          [
-            [
-              daemon.label
-              { _record = "daemon"; }
-            ]
-            { _record = "require-service"; }
-          ]
+          (requireDaemon daemon)
           (daemonToPreserves daemon)
         ];
       }) cfg.core.daemons)
@@ -260,13 +265,7 @@ in
             {
               name = "syndicate/services/require-${name}.pr";
               value.source = writePreservesFile "require-${name}.pr" [
-                [
-                  [
-                    daemon.label
-                    { _record = "daemon"; }
-                  ]
-                  { _record = "require-service"; }
-                ]
+                (requireDaemon daemon)
               ];
             }
           ) (filter (name: cfg.daemons.${name}.isRequired) (attrNames cfg.daemons))
