@@ -234,8 +234,9 @@ in
 
     environment.etc."syndicate/core/test-instrumentation.pr" = lib.mkIf config.synit.enable {
       text = ''
-        <require-service <relay-listener <tcp "::" 24> $config>
-        <require-service <relay-listener <tcp "0.0.0.0" 24> $config>
+        let ?backdoor = <relay-listener <tcp "0.0.0.0" 24> $config>
+        <require-service $backdoor>
+        <depends-on $backdoor <service-state <milestone network> up>>
       '';
     };
 

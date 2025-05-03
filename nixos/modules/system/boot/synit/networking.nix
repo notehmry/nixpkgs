@@ -10,7 +10,6 @@ let
     mapAttrs'
     optionalAttrs
     ;
-  inherit (builtins) toJSON;
 
   preserves = pkgs.formats.preserves {
     ignoreNulls = true;
@@ -70,6 +69,7 @@ in
   config = lib.mkIf config.synit.enable {
     environment.etc = lib.mkMerge [
       {
+        "syndicate/network/loopback.pr".text = "<interface lo { }>";
         "syndicate/core/network-config.pr".text = ''
           # Dataspace of intended network configuration.
           let ?network = dataspace

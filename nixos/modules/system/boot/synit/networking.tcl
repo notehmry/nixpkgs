@@ -24,6 +24,18 @@ syndicate::spawn actor {
     # Accessor for handler scripts.
     proc machineDataspace {} [list return $machineDataspace]
 
+    during {<interface @ifname #? { }>} {
+      catch {
+        exec ip link set $ifname up
+        # Assert information about the interface.
+        foreach info [preserves::project [exec ip --json link show $ifname] /] {
+          assert "<interface $ifname $info>" [machineDataspace]
+        }
+      } err
+      if {$err != ""} { puts stderr "failed to bring up $ifname: $err" }
+      onStop [list catch exec ip link set $ifname down]
+    } $networkDataspace
+
     during {<address @ifname #? @family #? @attrs #({ })>} {
       # Modify interface addresses.
       projectAttr $attrs address
