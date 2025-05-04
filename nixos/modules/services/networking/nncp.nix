@@ -127,5 +127,28 @@ in
       wantedBy = [ "sockets.target" ];
       socketConfig.Accept = true;
     };
+
+    synit.daemons.nncp-caller = mkIf callerCfg.enable {
+      argv = [
+        "execline-umask"
+        "0002"
+        "${pkg}/bin/nncp-caller"
+        "-quiet"
+        "-cfg"
+        nncpCfgFile
+      ] ++ callerCfg.extraArgs;
+    };
+
+    synit.daemons.nncp-daemon = mkIf daemonCfg.enable {
+      argv = [
+        "execline-umask"
+        "0002"
+        "${pkg}/bin/nncp-daemon"
+        "-quiet"
+        "-cfg"
+        nncpCfgFile
+      ] ++ callerCfg.extraArgs;
+    };
+
   };
 }
