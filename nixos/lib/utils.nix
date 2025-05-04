@@ -420,7 +420,9 @@ let
     makeLogger = args: dir: [
       (writeExeclineScript "logger.el" "-s1" ''
         if { ${lib.getExe' pkgs.s6-portable-utils "s6-mkdir"} -p "$1" }
+        fdswap 1 2
         pipeline -w { ${lib.getExe' pkgs.s6 "s6-log"} ${escapeShellArgs args} "$1" }
+        fdswap 1 2
         $@
       '')
       dir
