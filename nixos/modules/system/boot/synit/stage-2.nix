@@ -30,6 +30,7 @@ in
         inherit (config.system.nixos) distroName;
         path = makeBinPath [
           pkgs.coreutils
+          pkgs.execline
           pkgs.util-linux
         ];
         postBootCommands = pkgs.writeText "local-cmds" ''
