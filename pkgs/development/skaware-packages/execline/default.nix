@@ -2,11 +2,12 @@
   lib,
   skawarePackages,
   skalibs,
+  execline,
+  writeTextFile,
 }:
 
 let
   version = "2.9.6.1";
-
 in
 skawarePackages.buildPackage {
   inherit version;
@@ -77,4 +78,39 @@ skawarePackages.buildPackage {
       ${./execlineb-wrapper.c} \
       -lskarnet
   '';
+
+  # Write an execline script.
+  passthru.writeScript =
+    /*
+      The name of the script to write.
+
+      Type: String
+    */
+    name:
+    /*
+      Option flags to pass to execlineb.
+
+      Type String
+    */
+    args:
+    /*
+      The execline script text, not including a shebang.
+
+      Type String
+    */
+    script:
+    writeTextFile {
+      inherit name;
+      text = ''
+        #!${execline}/bin/execlineb ${toString args}
+        ${script}
+      '';
+      executable = true;
+      derivationArgs.nativeBuildInputs = [ execline ];
+      checkPhase = ''
+        echo redirfd -w 1 /dev/null echo >test.el
+        cat <$target >>test.el
+        execlineb -W test.el
+      '';
+    };
 }
