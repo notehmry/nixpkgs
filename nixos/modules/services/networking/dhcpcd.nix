@@ -405,6 +405,7 @@ in
         "--config"
         dhcpcdConf
       ] ++ lib.optional cfg.persistent "--persistent";
+      logging.enable = true;
       isRequired = true;
     };
 
