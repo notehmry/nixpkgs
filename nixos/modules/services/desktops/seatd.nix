@@ -8,7 +8,9 @@
 let
   cfg = config.services.seatd;
   inherit (lib)
+    getExe
     mkEnableOption
+    mkIf
     mkOption
     mkPackageOption
     optional
@@ -21,7 +23,7 @@ in
   options.services.seatd = {
     enable = mkEnableOption "seatd";
 
-    package = mkPackageOption [ "seatd" ] { };
+    package = mkPackageOption pkgs [ "seatd" ] { };
 
     user = mkOption {
       type = types.str;
@@ -45,11 +47,11 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = mkIf cfg.enable {
     environment.systemPackages = [
       cfg.package
     ] ++ optional config.systemd.enable pkgs.sdnotify-wrapper;
-    users.groups.seat = lib.mkIf (cfg.group == "seat") { };
+    users.groups.seat = mkIf (cfg.group == "seat") { };
 
     synit.daemons.seatd = {
       argv = [
