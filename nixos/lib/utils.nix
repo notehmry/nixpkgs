@@ -12,6 +12,7 @@ let
     concatStringsSep
     elem
     escapeShellArg
+    escapeShellArgs
     filter
     flatten
     getName
@@ -419,17 +420,7 @@ let
     makeLogger = args: dir: [
       (writeExeclineScript "logger.el" "-s1" ''
         if { ${lib.getExe' pkgs.s6-portable-utils "s6-mkdir"} -p "$1" }
-        fdreserve 2
-        multisubstitute {
-          importas logr FD0
-          importas logw FD1
-        }
-        piperw $logr $logw
-        background {
-          fdmove 0 $logr
-          ${lib.getExe' pkgs.s6 "s6-log"} ${toString args} "$1"
-        }
-        fdmove 2 $logw
+        pipeline -w { ${lib.getExe' pkgs.s6 "s6-log"} ${escapeShellArgs args} "$1" }
         $@
       '')
       dir
