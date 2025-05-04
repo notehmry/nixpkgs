@@ -2,15 +2,37 @@
   config,
   lib,
   pkgs,
+  utils,
   ...
 }:
 
 let
+  inherit (lib) concatMapStrings getExe;
+  inherit (utils) writeExeclineScript;
+
   nncpCfgFile = "/run/nncp.hjson";
   programCfg = config.programs.nncp;
   settingsFormat = pkgs.formats.json { };
   jsonCfgFile = settingsFormat.generate "nncp.json" programCfg.settings;
   pkg = programCfg.package;
+
+  configScript = writeExeclineScript "nncp-config.el" [ ] ''
+    umask 127
+    foreground { rm -f ${nncpCfgFile} }
+    pipeline -r {
+    ${concatMapStrings (f: ''
+      foreground {
+        redirfd -r 0 "${f}"
+        ${getExe pkgs.hjson-go} -c
+      }
+    '') ([ jsonCfgFile ] ++ config.programs.nncp.secrets)}
+    }
+    foreground {
+      redirfd -w 1 ${nncpCfgFile}
+      ${getExe pkgs.jq} --slurp "reduce .[] as $x ({}; . * $x)"
+    }
+    chgrp ${programCfg.group} ${nncpCfgFile}
+  '';
 in
 {
   options.programs.nncp = {
@@ -74,19 +96,13 @@ in
     ];
 
     systemd.services.nncp-config = {
-      path = [ pkg ];
       description = "Generate NNCP configuration";
       wantedBy = [ "basic.target" ];
-      serviceConfig.Type = "oneshot";
-      script = ''
-        umask 127
-        rm -f ${nncpCfgFile}
-        for f in ${jsonCfgFile} ${builtins.toString config.programs.nncp.secrets}
-        do
-          ${lib.getExe pkgs.hjson-go} -c <"$f"
-        done |${lib.getExe pkgs.jq} --slurp 'reduce .[] as $x ({}; . * $x)' >${nncpCfgFile}
-        chgrp ${programCfg.group} ${nncpCfgFile}
-      '';
+      serviceConfig = {
+        ExecStart = configScript;
+        Type = "oneshot";
+      };
+    };
     };
   };
 
