@@ -165,6 +165,7 @@ stdenv.mkDerivation rec {
     homepage = "https://w1.fi/wpa_supplicant/";
     description = "Tool for connecting to WPA and WPA2-protected wireless networks";
     license = licenses.bsd3;
+    mainProgram = "wpa_supplicant";
     maintainers = with maintainers; [
       marcweber
       ma27
