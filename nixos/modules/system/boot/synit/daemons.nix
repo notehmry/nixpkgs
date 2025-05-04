@@ -149,7 +149,7 @@ let
           default = "always";
         };
         logging = {
-          enable = (mkEnableOption "inject a logging wrapper over this daemon.") // {
+          enable = (mkEnableOption "inject a logging wrapper over this daemon") // {
             enable = true;
           };
           args = mkOption {
@@ -176,7 +176,16 @@ let
     attrs.label
     {
       argv = builtins.toJSON (
-        optionals attrs.logging.enable (makeLogger attrs.logging.args attrs.logging.dir) ++ attrs.argv
+        optionals attrs.logging.enable (
+          makeLogger attrs.logging.args attrs.logging.dir
+          ++ optionals (attrs.protocol == "none") [
+            "fdmove"
+            "-c"
+            "1"
+            "2"
+          ]
+        )
+        ++ attrs.argv
       );
       env =
         let
