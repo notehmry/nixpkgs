@@ -395,31 +395,7 @@ let
       in
       !elem (getName package) namesToDisable;
 
-    writeExeclineScript =
-      let
-        execlineb = lib.getExe pkgs.execline;
-      in
-      name: args: script:
-      pkgs.writeTextFile {
-        inherit name;
-        text = ''
-          #!${
-            toString [
-              execlineb
-              args
-            ]
-          }
-
-          ${script}
-        '';
-        executable = true;
-        checkPhase = ''
-          echo checking execline syntax of $target
-          echo echo >test.el
-          cat $target >>test.el
-          ${lib.getExe pkgs.buildPackages.execline} -W test.el || [ $? -ne 100 ]
-        '';
-      };
+    writeExeclineScript = pkgs.execline.passthru.writeScript;
 
     systemdUtils = {
       lib = import ./systemd-lib.nix {
