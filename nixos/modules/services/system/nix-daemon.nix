@@ -269,6 +269,22 @@ in
 
     };
 
+    synit.daemons.nix-daemon = {
+      argv = [ (lib.getExe' nixPackage "nix-daemon") ];
+      path = [
+        nixPackage
+        pkgs.util-linux
+        config.programs.ssh.package
+      ] ++ lib.optionals cfg.distributedBuilds [ pkgs.gzip ];
+      env =
+        cfg.envVars
+        // {
+          CURL_CA_BUNDLE = config.security.pki.caBundle;
+        }
+        // config.networking.proxy.envVars;
+      logging.enable = true;
+    };
+
     # Set up the environment variables for running Nix.
     environment.sessionVariables = cfg.envVars;
 
