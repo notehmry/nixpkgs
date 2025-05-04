@@ -103,6 +103,11 @@ in
         Type = "oneshot";
       };
     };
+
+    synit.daemons.nncp-config = {
+      argv = [ configScript ];
+      logging.enable = false;
+      restart = "on-error";
     };
   };
 
