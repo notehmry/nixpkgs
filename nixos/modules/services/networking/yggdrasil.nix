@@ -10,6 +10,7 @@ let
   inherit (lib)
     escapeShellArgs
     getExe
+    getExe'
     mkIf
     mkOption
     optionalString
@@ -292,6 +293,10 @@ in
     synit.daemons.yggdrasil = {
       argv = [
         configScript
+        "foreground"
+        " ${pkgs.kmod}/bin/modprobe"
+        " tun"
+        ""
         binYggdrasil
         "-useconffile"
         "/run/yggdrasil/yggdrasil.conf"
