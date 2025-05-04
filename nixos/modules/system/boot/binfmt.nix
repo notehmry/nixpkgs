@@ -343,10 +343,17 @@ in
   };
 
   config = {
-    assertions = lib.mapAttrsToList (name: reg: {
-      assertion = reg.fixBinary -> !reg.wrapInterpreterInShell;
-      message = "boot.binfmt.registrations.\"${name}\" cannot have fixBinary when the interpreter is invoked through a shell.";
-    }) cfg.registrations;
+    assertions =
+      lib.mapAttrsToList (name: reg: {
+        assertion = reg.fixBinary -> !reg.wrapInterpreterInShell;
+        message = "boot.binfmt.registrations.\"${name}\" cannot have fixBinary when the interpreter is invoked through a shell.";
+      }) cfg.registrations
+      ++ [
+        {
+          assertion = config.synit.enable -> (config.boot.binfmt.registrations == { });
+          message = "boot.binfmt is currently only available from systemd";
+        }
+      ];
 
     boot.binfmt.registrations = builtins.listToAttrs (
       map (
