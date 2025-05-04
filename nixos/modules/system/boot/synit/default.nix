@@ -36,15 +36,17 @@ in
   ];
 
   options.synit = {
-    enable = mkEnableOption "Synit system layer";
+    enable = mkEnableOption "the Synit system layer";
 
     controlSocket = {
-    enable = mkEnableOption ''
-      the system bus control socket.
-      The socket will located at ${ctrlSockPath}.
-    '' // {
-      default = true;
-    };
+      enable =
+        mkEnableOption ''
+          the system bus control socket.
+          The socket will located at ${ctrlSockPath}
+        ''
+        // {
+          default = true;
+        };
     };
 
     syndicate-server.package = mkPackageOption pkgs "syndicate-server" { };
@@ -126,10 +128,13 @@ in
     system.activationScripts.synit-config = {
       deps = [ "specialfs" ];
       text = "install --mode=644 --directory /run/etc/syndicate/{core,system,services}";
-    }
+    };
 
-    system.acticationScripts.synit-run = mkIf {
-      deps = [ "specialfs" "users" ];
+    system.activationScripts.synit-run = mkIf cfg.controlSocket.enable {
+      deps = [
+        "specialfs"
+        "users"
+      ];
       text = "install --group=wheel --mode=640 --directory /run/synit";
     };
 
