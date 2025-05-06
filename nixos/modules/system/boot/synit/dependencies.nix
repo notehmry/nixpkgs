@@ -6,13 +6,15 @@
 }:
 let
   inherit (lib)
+    attrsToList
     concatStringsSep
     filter
     flatten
     foldl'
-    attrsToList
     genericClosure
+    getAttr
     head
+    literalMD
     mkIf
     mkMerge
     mkOption
@@ -24,6 +26,7 @@ let
     ignoreNulls = true;
     rawStrings = true;
   };
+
   writePreservesFile = preserves.generate;
 
   rootDependerKey = with config.system; [
@@ -116,13 +119,6 @@ in
 
     environment.etc =
       let
-        serviceClosure =
-          topReq:
-          genericClosure {
-            startSet = [ topReq ];
-            operator = { dependee, ... }: filter ({ key, ... }: dependee.key == key) config.synit.depends;
-          };
-
         recordOfKey = key: tail key ++ [ { _record = head key; } ];
 
         dependsOn =
@@ -136,6 +132,22 @@ in
             ]
             { _record = "depends-on"; }
           ];
+
+        serviceClosure =
+          root:
+          map (getAttr "node") (
+            let
+              idx = node: {
+                inherit node;
+                key = node.key ++ node.dependee.key ++ [ node.dependee.state ];
+              };
+            in
+            genericClosure {
+              startSet = [ (idx root) ];
+              operator =
+                { node, ... }: map idx ((filter ({ key, ... }: key == node.dependee.key) config.synit.depends));
+            }
+          );
 
         writeRequires =
           topReq:
