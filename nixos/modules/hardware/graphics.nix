@@ -141,6 +141,35 @@ in
           { "r" = { }; };
     };
 
+    synit =
+      let
+        gfx = [
+          "milestone"
+          "graphics"
+        ];
+      in
+      {
+        milestones.system.requires = [
+          {
+            key = gfx;
+          }
+        ];
+        daemons.install-graphics-driver = {
+          argv = [
+            "${pkgs.s6-portable-utils}/bin/s6-ln"
+            "-s"
+            "-f"
+            "-n"
+            driversEnv
+            "/run/opengl-driver"
+          ];
+          restart = "on-error";
+          provides = [
+            gfx
+          ];
+        };
+      };
+
     hardware.graphics.package = lib.mkDefault pkgs.mesa;
     hardware.graphics.package32 = lib.mkDefault pkgs.pkgsi686Linux.mesa;
   };
