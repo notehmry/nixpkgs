@@ -4,24 +4,37 @@
   tclPackages,
   installShellFiles,
   socat,
+  execline,
 }:
 
+let
+  inherit (tclPackages) tcl sycl;
+in
 stdenvNoCC.mkDerivation {
   pname = "synit-service";
   version = "1.0";
 
   dontUnpack = true;
 
-  buildInputs = [ tclPackages.sycl ];
+  buildInputs = [ sycl ];
   nativeBuildInputs = [
-    tclPackages.tcl.tclPackageHook
     installShellFiles
   ];
 
   installPhase = ''
     runHook preInstall
-    tclWrapperArgs+=(--suffix PATH : ${lib.makeBinPath [ socat ]})
-    install -m755 -D ${./service.tcl} $out/bin/service
+
+    # Generate a custom wrapper because
+    # the binary wrapper breaks somehow.
+    cat << EOF > service
+    #!${lib.getExe execline} -s0
+    export TCLLIBPATH "''${TCLLIBPATH}"
+    export PATH "${lib.makeBinPath [ socat ]}"
+    ${tcl}/bin/tclsh ${./service.tcl} \$@
+    EOF
+
+
+    install -m755 -D -t $out/bin service
     installShellCompletion --fish --cmd service ${./completions.fish}
     runHook postInstall
   '';
@@ -29,5 +42,7 @@ stdenvNoCC.mkDerivation {
   meta = {
     description = "Synit service management utility";
     maintainers = with lib.maintainers; [ ehmry ];
+    mainProgram = "service";
+    license = lib.licenses.unlicense;
   };
 }
