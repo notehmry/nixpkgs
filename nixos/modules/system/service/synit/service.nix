@@ -2,7 +2,6 @@
 let
   inherit (lib)
     mkAliasOptionModule
-    mkIf
     mkOption
     types
     ;

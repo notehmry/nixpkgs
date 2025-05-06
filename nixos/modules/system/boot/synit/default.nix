@@ -29,6 +29,7 @@ in
 {
   imports = [
     ./daemons.nix
+    ./dependencies.nix
     ./filesystems.nix
     ./logging.nix
     ./mdevd.nix

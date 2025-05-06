@@ -16,28 +16,6 @@ let
     mapAttrsToList
     ;
 
-  makeDaemonUpStates =
-    prefixes: service:
-    mapAttrsToList (
-      name: module:
-      let
-        label = if name == "" then prefixes else prefixes ++ [ name ];
-      in
-      [
-        [
-          label
-          { _record = "daemon"; }
-        ]
-        "up"
-        { _record = "service-state"; }
-      ]
-    ) service.synit.daemons
-    ++ builtins.attrValues (
-      concatMapAttrs (
-        subServiceName: subService: makeDaemons (prefixes ++ [ subServiceName ]) subService
-      ) service.services
-    );
-
   makeDaemons =
     prefixes: service:
     concatMapAttrs (
@@ -49,7 +27,6 @@ let
         "${lib.concatStringsSep "-" label}" =
           { ... }:
           {
-            inherit label;
             imports = [ module ];
           };
       }
@@ -63,7 +40,8 @@ in
   config = lib.mkIf config.synit.enable {
 
     synit.daemons = concatMapAttrs (
-      serviceName: topLevelService: makeDaemons [ serviceName ] topLevelService
+      topLevelName: topLevelService: makeDaemons [ topLevelName ] topLevelService
     ) config.system.services;
   };
+
 }

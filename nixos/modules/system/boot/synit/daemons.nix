@@ -8,13 +8,14 @@
 
 let
   inherit (lib)
+    attrNames
+    foldl'
+    listToAttrs
     literalMD
     makeBinPath
     mapAttrs
-    mapAttrs'
     mkEnableOption
     mkIf
-    mkMerge
     mkOption
     optionals
     optionalAttrs
@@ -28,31 +29,22 @@ let
     ignoreNulls = true;
     rawStrings = true;
   };
+
   writePreservesFile = preserves.generate;
 
+  # Hack to make Preserves records with < >.
+  __findFile =
+    _: _record: fields:
+    fields ++ [ { inherit _record; } ];
+
   cfg = config.synit;
+
   mkIfSynit = mkIf cfg.enable;
 
   daemonSubmodule = types.submodule (
     { name, ... }:
     {
       options = {
-        label = mkOption {
-          type = preserves.literal;
-          default = name;
-          description = ''
-            Label for daemon assertion - `<daemon @label [ … ]>`.
-            Using a list of symbols rather than a concatenated symbol allows patterns
-            to be built that match multiple daemons by prefix. *TODO: is this correct?*
-          '';
-        };
-        isRequired = mkOption {
-          type = types.bool;
-          default = true;
-          description = ''
-            Whether this daemon is an explicitly required service.
-          '';
-        };
         argv = mkOption {
           description = ''
             Daemon command line.
@@ -148,6 +140,7 @@ let
           ];
           default = "always";
         };
+
         logging = {
           enable = (mkEnableOption "inject a logging wrapper over this daemon") // {
             enable = true;
@@ -168,55 +161,103 @@ let
             '';
           };
         };
+
+        requires = mkOption {
+          type = types.listOf (
+            types.submodule {
+              options = {
+                key = mkOption {
+                  type = types.listOf types.str;
+                  description = ''
+                    Label of a service.
+                    The head of the list is the record label and the tail is the fields.
+                  '';
+                };
+                state = mkOption {
+                  type = types.str;
+                  default = "up";
+                  description = "Required service state.";
+                };
+              };
+            }
+          );
+          default = [ ];
+          description = ''
+            Services required this daemon.
+            It is a list of `{ key, state }` attrs where `key` identifies
+            a service and `state` is a service state.a
+          '';
+          example = [
+            {
+              key = [
+                "milestone"
+                "foo"
+              ];
+              state = "up";
+            }
+            {
+              key = [
+                "daemon"
+                "oneshot-script"
+              ];
+              state = "complete";
+            }
+          ];
+        };
+        provides = mkOption {
+          type = with types; listOf (listOf str);
+          default = [ ];
+          description = ''
+            Reverse requires of this daemon.
+            It is a list of service keys.
+          '';
+          example = [
+            [
+              "milestone"
+              "network"
+            ]
+          ];
+        };
       };
     }
   );
 
-  daemonToPreserves = attrs: [
-    attrs.label
-    {
-      argv = builtins.toJSON (
-        optionals attrs.logging.enable (
-          makeLogger attrs.logging.args attrs.logging.dir
-          ++ optionals (attrs.protocol == "none") [
-            "fdmove"
-            "-c"
-            "1"
-            "2"
-          ]
-        )
-        ++ attrs.argv
-      );
-      env =
-        let
-          env' = optionalAttrs (attrs.env != null) attrs.env;
-        in
-        mapAttrs (_: v: if v == null then false else builtins.toJSON v) (
-          (optionalAttrs (!attrs.clearEnv) config.systemd.globalEnvironment)
-          // env'
-          // {
-            PATH = env'.PATH or "${config.security.wrapperDir}:${makeBinPath attrs.path}";
-          }
+  daemonToPreserves =
+    name: attrs:
+    <daemon> [
+      name
+      {
+        argv = builtins.toJSON (
+          optionals attrs.logging.enable (
+            makeLogger attrs.logging.args attrs.logging.dir
+            ++ optionals (attrs.protocol == "none") [
+              "fdmove"
+              "-c"
+              "1"
+              "2"
+            ]
+          )
+          ++ attrs.argv
         );
-      inherit (attrs)
-        dir
-        clearEnv
-        readyOnStart
-        restart
-        protocol
-        ;
-    }
-    { _record = "daemon"; }
-  ];
-
-  requireDaemon =
-    { label, ... }:
-    [
-      [
-        label
-        { _record = "daemon"; }
-      ]
-      { _record = "require-service"; }
+        env =
+          let
+            env' = optionalAttrs (attrs.env != null) attrs.env;
+          in
+          mapAttrs (_: v: if v == null then false else builtins.toJSON v) (
+            (optionalAttrs (!attrs.clearEnv) config.systemd.globalEnvironment)
+            // env'
+            // {
+              PATH = env'.PATH or "${config.security.wrapperDir}:${makeBinPath attrs.path}";
+            }
+          );
+        inherit (attrs)
+          dir
+          clearEnv
+          readyOnStart
+          restart
+          protocol
+          ;
+      }
     ];
 
 in
@@ -226,7 +267,7 @@ in
       daemons = mkOption {
         description = ''
           Definitions of daemons to assert as Synit core services.
-          For each daemon defined in core a `<requires-service <daemon ''${label}>>`
+          For each daemon defined in core a `<requires-service <daemon ''${name}>>`
           assertion is also made.
         '';
         default = { };
@@ -249,38 +290,41 @@ in
       "Synit daemons are using systemd.globalEnvironment until a portable option is introduced."
     ];
 
-    environment.etc = mkMerge [
-      (mapAttrs' (name: daemon: {
+    environment.etc = listToAttrs (
+      map (name: {
         name = "syndicate/core/daemon-${name}.pr";
-        value.source = writePreservesFile "daemon-${name}.pr" [
-          (requireDaemon daemon)
-          (daemonToPreserves daemon)
-        ];
-      }) cfg.core.daemons)
-      (mapAttrs' (name: daemon: {
+        value.source = writePreservesFile "daemon-${name}.pr" ([
+          (<require-service> [
+            (<daemon> [ name ])
+          ])
+          (daemonToPreserves name cfg.core.daemons.${name})
+        ]);
+      }) (attrNames cfg.core.daemons)
+      ++ map (name: {
         name = "syndicate/services/daemon-${name}.pr";
         value.source = writePreservesFile "daemon-${name}.pr" [
-          (daemonToPreserves daemon)
+          (daemonToPreserves name cfg.daemons.${name})
         ];
-      }) cfg.daemons)
-      (
-        with builtins;
-        listToAttrs (
-          map (
-            name:
-            let
-              daemon = cfg.daemons.${name};
-            in
-            {
-              name = "syndicate/services/require-${name}.pr";
-              value.source = writePreservesFile "require-${name}.pr" [
-                (requireDaemon daemon)
-              ];
-            }
-          ) (filter (name: cfg.daemons.${name}.isRequired) (attrNames cfg.daemons))
-        )
-      )
-    ];
+      }) (attrNames cfg.daemons)
+    );
+
+    synit.depends = foldl' (
+      depends: name:
+      let
+        daemon = cfg.daemons.${name};
+        key = [
+          "daemon"
+          name
+        ];
+      in
+      depends
+      ++ map (other: {
+        key = other;
+        dependee.key = key;
+      }) daemon.provides
+      ++ map (dependee: { inherit key dependee; }) daemon.requires
+    ) [ ] (attrNames cfg.daemons);
+
   };
 
   meta = {

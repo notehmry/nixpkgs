@@ -1,4 +1,9 @@
-{ lib, config, systemdPackage, ... }:
+{
+  lib,
+  config,
+  systemdPackage,
+  ...
+}:
 let
   inherit (lib) mkOption types;
 in
@@ -64,7 +69,9 @@ in
         Restart = lib.mkDefault "always";
         RestartSec = lib.mkDefault "5";
         ExecStart = [
-          (systemdPackage.functions.escapeSystemdExecArgs ([ config.process.executable ] ++ config.process.args))
+          (systemdPackage.functions.escapeSystemdExecArgs (
+            [ config.process.executable ] ++ config.process.args
+          ))
         ];
       };
     };

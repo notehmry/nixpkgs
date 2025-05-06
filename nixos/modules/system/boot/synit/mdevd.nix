@@ -15,7 +15,6 @@
     };
 
     synit.core.daemons.mdevd = {
-      logging.enable = true;
       argv = [
         (lib.getExe pkgs.mdevd)
         "-v"
@@ -28,6 +27,7 @@
         pkgs.kmod
         pkgs.coreutils
       ];
+      logging.enable = true;
     };
 
     system.activationScripts.mdevd = lib.mkIf config.boot.kernel.enable ''
