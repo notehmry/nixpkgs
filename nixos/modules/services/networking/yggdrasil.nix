@@ -10,7 +10,6 @@ let
   inherit (lib)
     escapeShellArgs
     getExe
-    getExe'
     mkIf
     mkOption
     optionalString
@@ -302,6 +301,19 @@ in
         "/run/yggdrasil/yggdrasil.conf"
       ] ++ cfg.extraArgs;
       logging.enable = true;
+      provides = [
+        [
+          "milestone"
+          "network"
+        ]
+        [
+          "route"
+          "#f"
+          "ipv6"
+          ''"200::"''
+          "8"
+        ]
+      ];
     };
 
     networking.dhcpcd.denyInterfaces = cfg.denyDhcpcdInterfaces;

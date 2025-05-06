@@ -53,6 +53,25 @@ in
     ] ++ optional config.systemd.enable pkgs.sdnotify-wrapper;
     users.groups.seat = mkIf (cfg.group == "seat") { };
 
+    synit.depends = [
+      {
+        dependee.key = [
+          "milestone"
+          "login"
+        ];
+      }
+      {
+        key = [
+          "milestone"
+          "login"
+        ];
+        dependee.key = [
+          "daemon"
+          "seatd"
+        ];
+      }
+    ];
+
     synit.daemons.seatd = {
       argv = [
         (getExe cfg.package)

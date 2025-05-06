@@ -210,6 +210,12 @@ let
         else
           [ "-c${configFile}" ]
       );
+    provides = [
+      [
+        "milestone"
+        "network"
+      ]
+    ];
   };
 
   systemctl = "/run/current-system/systemd/bin/systemctl";

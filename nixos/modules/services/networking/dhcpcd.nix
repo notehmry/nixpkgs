@@ -2,7 +2,6 @@
   config,
   lib,
   pkgs,
-  utils,
   ...
 }:
 let
@@ -30,13 +29,13 @@ let
       lib.filter (i: if i.useDHCP != null then !i.useDHCP else i.ipv4.addresses != [ ]) interfaces
     )
     ++ lib.mapAttrsToList (i: _: i) config.networking.sits
-    ++ lib.concatLists (lib.attrValues (lib.mapAttrs (n: v: v.interfaces) config.networking.bridges))
+    ++ lib.concatLists (lib.attrValues (lib.mapAttrs (_: v: v.interfaces) config.networking.bridges))
     ++ lib.flatten (
       lib.concatMap (
         i: lib.attrNames (lib.filterAttrs (_: config: config.type != "internal") i.interfaces)
       ) (lib.attrValues config.networking.vswitches)
     )
-    ++ lib.concatLists (lib.attrValues (lib.mapAttrs (n: v: v.interfaces) config.networking.bonds))
+    ++ lib.concatLists (lib.attrValues (lib.mapAttrs (_: v: v.interfaces) config.networking.bonds))
     ++ config.networking.dhcpcd.denyInterfaces;
 
   arrayAppendOrNull =
@@ -406,7 +405,12 @@ in
         dhcpcdConf
       ] ++ lib.optional cfg.persistent "--persistent";
       logging.enable = true;
-      isRequired = true;
+      provides = [
+        [
+          "milestone"
+          "network"
+        ]
+      ];
     };
 
     # Note: the service could run with `DynamicUser`, however that makes

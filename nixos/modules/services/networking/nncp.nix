@@ -1,19 +1,30 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 with lib;
 
 let
   nncpCfgFile = "/run/nncp.hjson";
-  programCfg = config.programs.nncp;
   callerCfg = config.services.nncp.caller;
   daemonCfg = config.services.nncp.daemon;
-  settingsFormat = pkgs.formats.json { };
-  jsonCfgFile = settingsFormat.generate "nncp.json" programCfg.settings;
-  pkg = programCfg.package;
+  pkg = config.programs.nncp.package;
+
+  # <milestone nncp is implied by ../../programs/nncp.nix
+  nncpMilestone = [
+    "milestone"
+    "nncp"
+  ];
+  configRequires = [
+    {
+      key = [
+        "daemon"
+        "nncp-config"
+      ];
+      state = "completed";
+    }
+  ];
 in
 {
   options = {
@@ -23,7 +34,7 @@ in
         enable = mkEnableOption ''
           cron'ed NNCP TCP daemon caller.
           The daemon will take configuration from
-          [](#opt-programs.nncp.settings)
+          {option}`programs.nncp.settings`.
         '';
         extraArgs = mkOption {
           type = with types; listOf str;
@@ -37,7 +48,7 @@ in
         enable = mkEnableOption ''
           NNCP TCP synronization daemon.
           The daemon will take configuration from
-          [](#opt-programs.nncp.settings)
+          {option}`programs.nncp.settings`.
         '';
         socketActivation = {
           enable = mkEnableOption "socket activation for nncp-daemon";
@@ -61,7 +72,7 @@ in
     };
   };
 
-  config = mkIf (programCfg.enable or callerCfg.enable or daemonCfg.enable) {
+  config = mkIf (callerCfg.enable or daemonCfg.enable) {
 
     assertions = [
       {
@@ -78,6 +89,9 @@ in
         message = "NNCP caller enabled but call configuration is missing";
       }
     ];
+
+    # Needed to generate the NNCP config file.
+    programs.nncp.enable = true;
 
     systemd.services."nncp-caller" = {
       inherit (callerCfg) enable;
@@ -128,7 +142,7 @@ in
       socketConfig.Accept = true;
     };
 
-    synit.daemons.nncp-caller = mkIf callerCfg.enable {
+    synit.daemons.nncp-caller = {
       argv = [
         "execline-umask"
         "0002"
@@ -137,9 +151,11 @@ in
         "-cfg"
         nncpCfgFile
       ] ++ callerCfg.extraArgs;
+      provides = optional callerCfg.enable nncpMilestone;
+      requires = configRequires;
     };
 
-    synit.daemons.nncp-daemon = mkIf daemonCfg.enable {
+    synit.daemons.nncp-daemon = {
       argv = [
         "execline-umask"
         "0002"
@@ -148,7 +164,12 @@ in
         "-cfg"
         nncpCfgFile
       ] ++ callerCfg.extraArgs;
+      provides = optional daemonCfg.enable nncpMilestone;
+      requires = configRequires;
     };
 
   };
+
+  # TODO: these should be modular services with isolated configurations.
+  meta.maintainers = with lib.maintainers; [ ehmry ];
 }

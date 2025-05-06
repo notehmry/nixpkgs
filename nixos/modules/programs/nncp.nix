@@ -104,10 +104,25 @@ in
       };
     };
 
+    synit.milestones.system.requires = [
+      {
+        key = [
+          "milestone"
+          "nncp"
+        ];
+      }
+    ];
+
     synit.daemons.nncp-config = {
       argv = [ configScript ];
-      logging.enable = false;
       restart = "on-error";
+      logging.enable = false;
+      provides = [
+        [
+          "milestone"
+          "nncp"
+        ]
+      ];
     };
   };
 

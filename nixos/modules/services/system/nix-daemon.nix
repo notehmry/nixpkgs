@@ -269,6 +269,8 @@ in
 
     };
 
+    synit.milestones.system.requires = [ { key = [ "milestone" "nix" ]; } ];
+
     synit.daemons.nix-daemon = {
       argv = [ (lib.getExe' nixPackage "nix-daemon") ];
       path = [
@@ -283,6 +285,7 @@ in
         }
         // config.networking.proxy.envVars;
       logging.enable = true;
+      provides = [ [ "milestone" "nix" ] ];
     };
 
     # Set up the environment variables for running Nix.

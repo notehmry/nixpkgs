@@ -96,7 +96,15 @@ in
         ];
       };
 
-      synit.daemon.restart = if cfg.restart then "always" else "never";
+      synit.daemon = {
+        restart = if cfg.restart then "always" else "never";
+        provides = [
+          [
+            "milestone"
+            "login"
+          ]
+        ];
+      };
 
       systemd.service = {
         aliases = [ "display-manager.service" ];
