@@ -1803,6 +1803,8 @@
   ./system/boot/systemd/tpm2.nix
   ./system/boot/systemd/user.nix
   ./system/boot/systemd/userdbd.nix
+  ./system/boot/systemd/homed.nix
+  ./system/boot/other-than-systemd.nix
   ./system/boot/timesyncd.nix
   ./system/boot/tmp.nix
   ./system/boot/uki.nix
