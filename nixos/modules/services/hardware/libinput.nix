@@ -447,15 +447,6 @@ in
         };
       };
 
-    # Need to transition libinput away from systemd.
-    nixpkgs.overlays = lib.mkIf (!config.systemd.enable) [
-      (final: prev: {
-        libinput = prev.libinput.override {
-          udev = final.libudev-zero;
-        };
-      })
-    ];
-
     services.udev.packages = [ pkgs.libinput.out ];
 
     services.xserver.inputClassSections = [
