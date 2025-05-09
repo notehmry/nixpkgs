@@ -5,10 +5,26 @@
   ...
 }:
 
+let
+  inherit (lib)
+    getExe
+    literalMD
+    mkEnableOption
+    mkIf
+    ;
+  cfg = config.hardware.mdevd;
+in
 {
-  config = lib.mkIf config.synit.enable {
+  options = {
+    hardware.mdevd.enable = (mkEnableOption "the mdevd uevent manager") // {
+      default = config.synit.enable;
+      defaultText = literalMD "config.synit.enable";
+    };
+  };
 
-    environment.etc = lib.mkIf config.boot.modprobeConfig.enable {
+  config = mkIf (config.synit.enable && cfg.enable) {
+
+    environment.etc = mkIf config.boot.modprobeConfig.enable {
       # We don't place this into `extraModprobeConfig` so that stage-1 ramdisk doesn't bloat.
       "modprobe.d/firmware.conf".text =
         "options firmware_class path=${config.hardware.firmware}/lib/firmware";
@@ -16,9 +32,11 @@
 
     synit.core.daemons.mdevd = {
       argv = [
-        (lib.getExe pkgs.mdevd)
+        (getExe pkgs.mdevd)
         "-v"
         "2"
+        "-O"
+        "4"
         "-f"
         ./mdev.conf
         "-C"
@@ -26,11 +44,12 @@
       path = [
         pkgs.kmod
         pkgs.coreutils
+        pkgs.execline
       ];
       logging.enable = true;
     };
 
-    system.activationScripts.mdevd = lib.mkIf config.boot.kernel.enable ''
+    system.activationScripts.mdevd = mkIf config.boot.kernel.enable ''
       # The deprecated hotplug uevent helper is not used anymore
       if [ -e /proc/sys/kernel/hotplug ]; then
         echo "" > /proc/sys/kernel/hotplug
