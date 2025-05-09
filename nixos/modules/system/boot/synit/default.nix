@@ -115,6 +115,7 @@ in
         text = mkDefault [
           (getExe cfg.syndicate-server.package)
           "--inferior"
+          "--control"
         ];
       };
       syndicate-server-config = {
