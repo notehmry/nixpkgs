@@ -12,6 +12,8 @@
       message = "pkgs.withSystemd is not set to false or nixpkgs.overaly is ineffective";
     };
 
+    nixpkgs.config.withSystemd = false;
+
     nixpkgs.overlays = [
       (
         final: prev:
