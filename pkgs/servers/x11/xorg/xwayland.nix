@@ -40,6 +40,7 @@
   pixman,
   stdenv,
   systemd,
+  withSystemd ? lib.meta.availableOn stdenv.hostPlatform systemd,
   wayland,
   wayland-protocols,
   wayland-scanner,
@@ -107,7 +108,9 @@ stdenv.mkDerivation rec {
       mesa-gl-headers
       openssl
       pixman
-      systemd
+    ]
+    ++ lib.optional withSystemd systemd
+    ++ [
       wayland
       wayland-protocols
       xkbcomp
