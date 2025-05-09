@@ -22,6 +22,8 @@
   withQcam ? false,
   qt6, # withQcam
   libtiff, # withQcam
+  udev,
+  withSystemd ? true,
 }:
 
 stdenv.mkDerivation rec {
@@ -75,7 +77,7 @@ stdenv.mkDerivation rec {
       libdrm
 
       # hotplugging
-      systemd
+      (if withSystemd then systemd else udev)
 
       # pycamera
       python3Packages.pybind11
