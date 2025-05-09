@@ -18,6 +18,8 @@
   bluez,
   networkmanager,
   pytestCheckHook,
+
+  withSystemd ? true,
 }:
 
 let
@@ -47,15 +49,18 @@ buildPythonPackage rec {
 
   dependencies = [ dbus-python ];
 
-  nativeCheckInputs = [
-    dbus
-    gobject-introspection
-    pygobject3
-    bluez
-    pbap-client
-    networkmanager
-    pytestCheckHook
-  ];
+  nativeCheckInputs =
+    [
+      dbus
+      gobject-introspection
+      pygobject3
+      bluez
+      pbap-client
+    ]
+    ++ lib.optional withSystemd networkmanager
+    ++ [
+      pytestCheckHook
+    ];
 
   disabledTests = [
     # wants to call upower, which is a reverse-dependency
