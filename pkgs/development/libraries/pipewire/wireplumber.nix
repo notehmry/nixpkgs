@@ -21,6 +21,7 @@
   # options
   enableDocs ? true,
   enableGI ? true,
+  withSystemd ? true,
 }:
 
 stdenv.mkDerivation rec {
@@ -66,12 +67,15 @@ stdenv.mkDerivation rec {
       ))
     ];
 
-  buildInputs = [
-    glib
-    systemd
-    lua5_4
-    pipewire
-  ];
+  buildInputs =
+    [
+      glib
+    ]
+    ++ lib.optional withSystemd systemd
+    ++ [
+      lua5_4
+      pipewire
+    ];
 
   mesonFlags = [
     (lib.mesonBool "system-lua" true)
@@ -81,7 +85,7 @@ stdenv.mkDerivation rec {
     (lib.mesonBool "systemd-system-service" true)
     (lib.mesonOption "systemd-system-unit-dir" "${placeholder "out"}/lib/systemd/system")
     (lib.mesonOption "sysconfdir" "/etc")
-  ];
+  ] ++ lib.optional (!withSystemd) (lib.mesonEnable "systemd" withSystemd);
 
   passthru.updateScript = nix-update-script { };
 
