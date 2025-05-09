@@ -36,6 +36,7 @@
   libxkbfile,
   nixosTests,
   gettext,
+  withSystemd ? true,
 }:
 let
   enDictVer = "20121020";
@@ -67,36 +68,39 @@ stdenv.mkDerivation rec {
     gettext
   ];
 
-  buildInputs = [
-    extra-cmake-modules # required to please CMake
-    expat
-    fmt
-    isocodes
-    cairo
-    enchant
-    pango
-    libthai
-    libdatrie
-    fribidi
-    systemd
-    gdk-pixbuf
-    wayland
-    wayland-protocols
-    json_c
-    libGL
-    libuuid
-    libselinux
-    libsepol
-    libXdmcp
-    libxkbcommon
-    pcre
-    xcbutil
-    xcbutilwm
-    xcbutilkeysyms
-    xcb-imdkit
-    xkeyboard_config
-    libxkbfile
-  ];
+  buildInputs =
+    [
+      extra-cmake-modules # required to please CMake
+      expat
+      fmt
+      isocodes
+      cairo
+      enchant
+      pango
+      libthai
+      libdatrie
+      fribidi
+    ]
+    ++ lib.optional withSystemd systemd
+    ++ [
+      gdk-pixbuf
+      wayland
+      wayland-protocols
+      json_c
+      libGL
+      libuuid
+      libselinux
+      libsepol
+      libXdmcp
+      libxkbcommon
+      pcre
+      xcbutil
+      xcbutilwm
+      xcbutilkeysyms
+      xcb-imdkit
+      xkeyboard_config
+      libxkbfile
+    ];
 
   strictDeps = true;
 
