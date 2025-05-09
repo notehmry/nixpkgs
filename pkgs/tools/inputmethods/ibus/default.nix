@@ -34,6 +34,7 @@
   buildPackages,
   runtimeShell,
   nixosTests,
+  withSystemd ? true,
 }:
 
 let
@@ -156,7 +157,9 @@ stdenv.mkDerivation rec {
   buildInputs =
     [
       dbus
-      systemd
+    ]
+    ++ lib.optional withSystemd systemd
+    ++ [
       dconf
       gdk-pixbuf
       python3.pkgs.pygobject3 # for pygobject overrides
