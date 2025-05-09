@@ -11,8 +11,8 @@
   replaceVars,
   enableCmdlib ? false,
   enableDmeventd ? false,
-  udevSupport ? !stdenv.hostPlatform.isStatic,
   udev,
+  udevSupport ? (!stdenv.hostPlatform.isStatic && (lib.hasPrefix "systemd" udev.name)),
   onlyLib ? stdenv.hostPlatform.isStatic,
   # Otherwise we have a infinity recursion during static compilation
   enableUtilLinux ? !stdenv.hostPlatform.isStatic,
