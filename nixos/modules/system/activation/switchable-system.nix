@@ -41,7 +41,7 @@ in
   };
 
   config = lib.mkMerge [
-    (lib.mkIf (config.system.switch.enable && !config.system.switch.enableNg) {
+    (lib.mkIf (config.systemd.enable && config.system.switch.enable && !config.system.switch.enableNg) {
       warnings = [
         ''
           The Perl implementation of switch-to-configuration will be deprecated
@@ -80,7 +80,7 @@ in
         ''}
       '';
     })
-    (lib.mkIf config.system.switch.enableNg {
+    (lib.mkIf (config.systemd.enable && config.system.switch.enableNg) {
       # Use a subshell so we can source makeWrapper's setup hook without
       # affecting the rest of activatableSystemBuilderCommands.
       system.activatableSystemBuilderCommands = ''
@@ -96,9 +96,23 @@ in
             --set INSTALL_BOOTLOADER ${lib.escapeShellArg config.system.build.installBootLoader} \
             --set PRE_SWITCH_CHECK ${lib.escapeShellArg config.system.preSwitchChecksScript} \
             --set LOCALE_ARCHIVE ${config.i18n.glibcLocales}/lib/locale/locale-archive \
-            ${lib.optionalString config.systemd.enable "--set SYSTEMD ${config.systemd.package}"}
-
+            --set SYSTEMD ${config.systemd.package}
         )
+      '';
+    })
+    (lib.mkIf (config.synit.enable) {
+      system.activatableSystemBuilderCommands = ''
+        mkdir $out/bin
+        substitute ${./switch-to-configuration-synit.tcl} $out/bin/switch-to-configuration \
+          --subst-var out \
+          --subst-var-by tcl ${pkgs.tclPackages.tcl} \
+          --subst-var-by toplevel ''${!toplevelVar} \
+          --subst-var-by installBootLoader ${lib.escapeShellArg config.system.build.installBootLoader} \
+          --subst-var-by preSwitchCheck ${lib.escapeShellArg config.system.preSwitchChecksScript} \
+          --subst-var-by setLocale 'set env(LOCAL_ARCHIVE) {${config.i18n.glibcLocales}/lib/locale/locale-archive}' \
+          ;
+
+        chmod +x $out/bin/switch-to-configuration
       '';
     })
   ];
