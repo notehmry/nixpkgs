@@ -144,5 +144,20 @@ in
         serviceConfig.StateDirectory = "tlp";
       };
     };
+
+    synit.daemons.tlp = {
+      argv = [
+        cfg.package
+        "init"
+        "start"
+      ];
+      provides = [
+        [
+          "milestone"
+          "system"
+        ]
+      ];
+      restart = "on-error";
+    };
   };
 }
