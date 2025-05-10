@@ -23,6 +23,7 @@
   # RDW only works with NetworkManager, and thus is optional with default off
   enableRDW ? false,
   networkmanager,
+  withSystemd ? true,
 }:
 stdenv.mkDerivation rec {
   pname = "tlp";
@@ -58,7 +59,7 @@ stdenv.mkDerivation rec {
   makeFlags = [
     "TLP_NO_INIT=1"
     "TLP_WITH_ELOGIND=0"
-    "TLP_WITH_SYSTEMD=1"
+    "TLP_WITH_SYSTEMD=${if withSystemd then "1" else "0"}"
 
     "DESTDIR=${placeholder "out"}"
   ];
@@ -97,7 +98,9 @@ stdenv.mkDerivation rec {
           pciutils
           perl
           smartmontools
-          systemd
+        ]
+        ++ lib.optional withSystemd systemd
+        ++ [
           util-linux
         ]
         ++ lib.optional enableRDW networkmanager
