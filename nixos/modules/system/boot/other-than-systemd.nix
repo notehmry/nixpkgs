@@ -32,6 +32,7 @@
         {
           enableSystemd = false;
           withSystemd = false;
+          udevSupport = false;
 
           # systemd = null;
           udev = final.libudev-zero;
