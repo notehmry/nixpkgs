@@ -26,14 +26,17 @@
   libxml2,
   enablePython ? true,
   enableLdap ? true,
+  withSystemd ? lib.meta.availableOn stdenv.hostPlatform systemd,
 }:
 
 let
-  statdPath = lib.makeBinPath [
-    systemd
-    util-linux
-    coreutils
-  ];
+  statdPath = lib.makeBinPath (
+    lib.optional withSystemd systemd
+    ++ [
+      util-linux
+      coreutils
+    ]
+  );
 in
 
 stdenv.mkDerivation rec {
@@ -174,10 +177,13 @@ stdenv.mkDerivation rec {
 
   disallowedReferences = [ (lib.getDev libkrb5) ];
 
-  passthru.tests = {
-    nfs3-simple = nixosTests.nfs3.simple;
-    nfs4-simple = nixosTests.nfs4.simple;
-    nfs4-kerberos = nixosTests.nfs4.kerberos;
+  passthru = {
+    features = { inherit withSystemd; };
+    tests = {
+      nfs3-simple = nixosTests.nfs3.simple;
+      nfs4-simple = nixosTests.nfs4.simple;
+      nfs4-kerberos = nixosTests.nfs4.kerberos;
+    };
   };
 
   meta = with lib; {
