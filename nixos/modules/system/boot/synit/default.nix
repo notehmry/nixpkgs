@@ -34,6 +34,7 @@ in
     ./logging.nix
     ./mdevd.nix
     ./networking.nix
+    ./tmpfiles.nix
   ];
 
   options.synit = {
