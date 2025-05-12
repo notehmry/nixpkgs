@@ -6,6 +6,12 @@
 }:
 
 let
+  inherit (lib)
+    getExe
+    getExe'
+    optional
+    optionals
+    ;
   cfg = config.services.eris-server;
   stateDirectoryPath = "\${STATE_DIRECTORY}";
   nullOrStr = with lib.types; nullOr str;
@@ -122,6 +128,44 @@ in
               AmbientCapabilities = "CAP_NET_BIND_SERVICE";
             };
       };
+
+    synit.daemons.eris-server = {
+      argv =
+        optionals (cfg.mountpoint != null) [
+          (getExe' pkgs.execline "foreground")
+          " ${config.security.wrapperDir}/fusermount "
+          " -uz"
+          " ${cfg.mountpoint}"
+          ""
+        ]
+        ++ [
+          (getExe cfg.package)
+          "server"
+        ]
+        ++ optionals (cfg.listenCoap != null) [
+          "--coap"
+          cfg.listenCoap
+        ]
+        ++ optionals (cfg.listenHttp != null) [
+          "--http"
+          cfg.listenHttp
+        ]
+        ++ optional cfg.decode " --decode"
+        ++ optionals (cfg.mountpoint != null) [
+          "--mountpoint"
+          cfg.mountpoint
+        ];
+      env.ERIS_STORE_URL = toString cfg.backends;
+      requires = [
+        {
+          key = [
+            "milestone"
+            "network"
+          ];
+        }
+      ];
+    };
+
   };
 
   meta.maintainers = with lib.maintainers; [ ehmry ];
