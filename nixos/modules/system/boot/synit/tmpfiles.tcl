@@ -1,5 +1,7 @@
 #!/usr/bin/env -S tclsh
 
+# TODO: periodic cleanup.
+
 package require syndicate
 namespace import preserves::*
 
@@ -24,18 +26,18 @@ proc setAttrs {} {
     foreach g [project -unpreserve $group {string}] {
       lappend cmd -group $g
     }
-    puts stderr $cmd
     {*}$cmd
   }
 }
 
 syndicate::spawn actor {
   set tmpfilesEntity [createAssertHandler {value handle} {
-    preserves::project $value {^ tmpfiles-dataspace / } dataspace
-    if {$dataspace == ""} {
+    preserves::project $value {^ tmpfiles-dataspace / } ds
+    if {$ds == ""} {
       puts stderr "unrecognized assertion $value
       return
     }
+    proc dataspace {} [list return $ds]
 
     during {@rule #(<tmpfile @type #? @path #? @perm #? @user #? @group #? @age #? @arg #?>)} {
       project -unpreserve $path {string} path
@@ -48,7 +50,7 @@ syndicate::spawn actor {
           set perm 0644
         }
       }
-      catch {
+      if {[catch {
         switch $type {
 
           f {
@@ -131,14 +133,13 @@ syndicate::spawn actor {
           }
 
         }
-      } err
-      if {$err != ""} {
+      } err]} {
         puts stderr "failed to execute rule $rule: $err"
 
         # Assert an error back into the tmpfiles dataspace.
-        assert "<error \"$err\" $rule> $dataspace
+        assert "<error \"$err\" $rule>" [dataspace]
       }
-    } $dataspace
+    } [dataspace]
     
   }]
 
