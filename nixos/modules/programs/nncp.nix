@@ -20,16 +20,15 @@ let
     umask 127
     foreground { rm -f ${nncpCfgFile} }
     pipeline -r {
-    ${concatMapStrings (f: ''
-      foreground {
-        redirfd -r 0 "${f}"
+      forx -E f { ${jsonCfgFile} ${toString config.programs.nncp.secrets} }
+        redirfd -r 0 $f
         ${getExe pkgs.hjson-go} -c
-      }
-    '') ([ jsonCfgFile ] ++ config.programs.nncp.secrets)}
     }
-    foreground {
+    if {
       redirfd -w 1 ${nncpCfgFile}
-      ${getExe pkgs.jq} --slurp "reduce .[] as $x ({}; . * $x)"
+      # Combine and remove neighbors that would clash with the self identity.
+      ${getExe pkgs.jq} --slurp --sort-keys
+        "reduce .[] as $x ({}; . * $x) | .neigh.self as $self | del(.neigh [] | select(.id == $self.id) | select(. != $self))"
     }
     chgrp ${programCfg.group} ${nncpCfgFile}
   '';
