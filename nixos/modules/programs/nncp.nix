@@ -90,10 +90,18 @@ in
       log = lib.mkDefault "/var/spool/nncp/log";
     };
 
-    systemd.tmpfiles.rules = [
-      "d ${programCfg.settings.spool} 0770 root ${programCfg.group}"
-      "f ${programCfg.settings.log} 0770 root ${programCfg.group}"
-    ];
+    systemd.tmpfiles.settings.nncp =
+      let
+        rule.d = {
+          mode = "0770";
+          user = "root";
+          inherit (programCfg) group;
+        };
+      in
+      {
+        ${programCfg.settings.spool} = rule;
+        ${programCfg.settings.log} = rule;
+      };
 
     systemd.services.nncp-config = {
       description = "Generate NNCP configuration";
